@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "UX improvements to the connection management page\n\n- User names and show names in the overview are now clickable links\n- Series select is lazy: starts empty, shows results after typing 2+ characters\n- User dropdowns start with a blank placeholder; validation prevents saving without a selection",
+        "checksum": "7fa49b8613f372d4a792060ece02abe1",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.8.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-30T16:04:33Z",
+        "version": "0.2.8.0"
+      },
+      {
         "changelog": "Fix: connection data JSON property casing\n\n[JsonProperty] attributes were ignored because Jellyfin 10.11.x uses\nSystem.Text.Json. API responses now project to anonymous DTOs with\nexplicit lowercase names so the JavaScript can reliably read them.",
         "checksum": "ebfd34e2e6b7beb2afeea7762fdb82d8",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.7.0/Jellyfin.Plugin.WatchSync.zip",
