@@ -9,11 +9,11 @@
     "owner": "nme84",
     "versions": [
       {
-        "changelog": "Initial release of Watch State Sync.\n\nSynchronises watch states between connected user pairs for linked TV shows.",
-        "checksum": "4603a74a6dd3b8b0c037baef5fc8c9d3",
+        "changelog": "Initial release of Watch State Sync.\n\nSynchronises watch states between connected user pairs for linked TV shows.\nWhen a connection is first created, existing watch states are merged with\na logical OR: if either user has already watched an episode, it is marked\nas watched for both.",
+        "checksum": "81f2adefd1eddb9dca45eb68b6bd192b",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.1.0.0/Jellyfin.Plugin.WatchSync.zip",
         "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T12:52:38Z",
+        "timestamp": "2026-05-30T13:03:32Z",
         "version": "0.1.0.0"
       }
     ]
