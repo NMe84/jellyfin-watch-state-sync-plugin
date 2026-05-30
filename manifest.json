@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "Fix chain icon button never appearing\n\nJellyfin detail page URLs contain 32-character GUIDs without dashes\n(e.g. ?id=16c5a87fcd0d81c27b27382aba5446c7). The previous regex\nrequired a 36-character dashed format, so getItemIdFromHash() never\nmatched and the button was never injected.",
+        "checksum": "522c6d4d6a2121b5a68e9a2d7345c6c3",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.13.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-30T18:30:47Z",
+        "version": "0.2.13.0"
+      },
+      {
         "changelog": "Rewrite chain icon as button in the detail page action bar\n\nThe sync indicator is now a link icon button inside the same toolbar\nas Play and Favourite. Clicking it shows a modal listing the synced\nusers. Uses MutationObserver to wait for React to render.",
         "checksum": "8caf90b3c1ab4d52c8e65110739dcccb",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.12.0/Jellyfin.Plugin.WatchSync.zip",
