@@ -1,13 +1,21 @@
 [
   {
     "category": "Sync",
-    "description": "Synchronize watch states between connected user pairs for linked TV shows",
+    "description": "Synchronize watch states between connected users for linked TV shows",
     "guid": "3d3a1d5a-8f15-4c1c-8da3-5f7e2b1a9c6d",
     "imageUrl": "https://raw.githubusercontent.com/NMe84/jellyfin-watch-state-sync-plugin/master/sync.png",
     "name": "Watch State Sync",
-    "overview": "Links TV shows between user pairs. When one user watches or marks an episode as (un)watched, the connected user's watch state is automatically updated in both directions. Manage connections from the Watch State Sync page in the admin dashboard.\n",
+    "overview": "Links TV shows between groups of two or more users. When any user in a group watches or marks an episode as (un)watched, all other users in the group are updated automatically. Manage connections from the Watch State Sync page in the admin dashboard.\n",
     "owner": "nme84",
     "versions": [
+      {
+        "changelog": "## What's new\n\n**Variable-size sync groups** — connections now support any number of users (2+), not just pairs.\n\n- When creating or editing a connection, use the **+ Add user** button to include a third, fourth, or more users.\n- When any user in the group watches or marks an episode, all other users in the group are updated automatically.\n- The initial OR-merge on connection creation now runs across all N users in the group.\n\n## Breaking change\n\nThe internal configuration format changed between 0.1 and 0.2.  Any connections configured in 0.1 will need to be re-entered after upgrading.",
+        "checksum": "7d3d514461597abd24a2f008bc990be1",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.0.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-30T13:20:13Z",
+        "version": "0.2.0.0"
+      },
       {
         "changelog": "Initial release of Watch State Sync.\n\nSynchronises watch states between connected user pairs for linked TV shows.\nWhen a connection is first created, existing watch states are merged with\na logical OR: if either user has already watched an episode, it is marked\nas watched for both.",
         "checksum": "81f2adefd1eddb9dca45eb68b6bd192b",
