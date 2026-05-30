@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "Fix episode count inflation; sort connections list alphabetically\n\n- Progress bar no longer inflates totals with virtual stub episodes\n- Connection list is now sorted: groups by user names, shows within a group by series name",
+        "checksum": "76c37e29e8bf813b682372ee88026660",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.1.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-30T20:07:17Z",
+        "version": "1.0.1.0"
+      },
+      {
         "changelog": "Initial stable release of Watch State Sync\n\nSynchronises watch states between connected groups of users for linked TV shows.\n\n**Features:**\n- Connect any number of users to a show — when one watches an episode all others are updated automatically\n- Initial OR-merge when a connection is created: episodes already watched by either user are immediately synced\n- Episode progress bar and watch count visible on each connection in the admin page\n- Link button in the detail page action bar showing who you are synced with\n- Admin page accessible from the Jellyfin sidebar under Watch State Sync",
         "checksum": "6c91d65755c562ad495968dc64e50826",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.0.0/Jellyfin.Plugin.WatchSync.zip",
