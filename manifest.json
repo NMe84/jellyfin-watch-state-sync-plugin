@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "Fix: JSON property casing, duplicate user selection, dark select boxes\n\n- Connections were not loading after save due to PascalCase JSON vs\n  camelCase JavaScript — fixed with [JsonProperty] attributes\n- User dropdowns now prevent selecting the same user twice\n- Select boxes now have a dark background in Jellyfin's dark theme",
+        "checksum": "037c65497a8287b4f03f6dea4219e722",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.6.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-30T15:39:33Z",
+        "version": "0.2.6.0"
+      },
+      {
         "changelog": "Fix: series list 500 error and empty user dropdown\n\n- GetSeries endpoint now filters at the database level with\n  IncludeItemTypes=Series (using the correct Jellyfin.Data.Enums\n  namespace), avoiding deserialization errors on items from\n  uninstalled plugins\n- Users and series load independently so one failure doesn't block both\n- Minor: icon spacing fix on the Add User button",
         "checksum": "a0c1d0afe139277ef382ab60e53b4f48",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.5.0/Jellyfin.Plugin.WatchSync.zip",
