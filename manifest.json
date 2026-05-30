@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "Fix: connection data JSON property casing\n\n[JsonProperty] attributes were ignored because Jellyfin 10.11.x uses\nSystem.Text.Json. API responses now project to anonymous DTOs with\nexplicit lowercase names so the JavaScript can reliably read them.",
+        "checksum": "ebfd34e2e6b7beb2afeea7762fdb82d8",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.7.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-30T15:48:45Z",
+        "version": "0.2.7.0"
+      },
+      {
         "changelog": "Fix: JSON property casing, duplicate user selection, dark select boxes\n\n- Connections were not loading after save due to PascalCase JSON vs\n  camelCase JavaScript — fixed with [JsonProperty] attributes\n- User dropdowns now prevent selecting the same user twice\n- Select boxes now have a dark background in Jellyfin's dark theme",
         "checksum": "037c65497a8287b4f03f6dea4219e722",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.6.0/Jellyfin.Plugin.WatchSync.zip",
