@@ -9,124 +9,12 @@
     "owner": "nme84",
     "versions": [
       {
-        "changelog": "Fix chain icon button never appearing\n\nJellyfin detail page URLs contain 32-character GUIDs without dashes\n(e.g. ?id=16c5a87fcd0d81c27b27382aba5446c7). The previous regex\nrequired a 36-character dashed format, so getItemIdFromHash() never\nmatched and the button was never injected.",
-        "checksum": "522c6d4d6a2121b5a68e9a2d7345c6c3",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.13.0/Jellyfin.Plugin.WatchSync.zip",
+        "changelog": "Initial stable release of Watch State Sync\n\nSynchronises watch states between connected groups of users for linked TV shows.\n\n**Features:**\n- Connect any number of users to a show — when one watches an episode all others are updated automatically\n- Initial OR-merge when a connection is created: episodes already watched by either user are immediately synced\n- Episode progress bar and watch count visible on each connection in the admin page\n- Link button in the detail page action bar showing who you are synced with\n- Admin page accessible from the Jellyfin sidebar under Watch State Sync",
+        "checksum": "6c91d65755c562ad495968dc64e50826",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.0.0/Jellyfin.Plugin.WatchSync.zip",
         "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T18:30:47Z",
-        "version": "0.2.13.0"
-      },
-      {
-        "changelog": "Rewrite chain icon as button in the detail page action bar\n\nThe sync indicator is now a link icon button inside the same toolbar\nas Play and Favourite. Clicking it shows a modal listing the synced\nusers. Uses MutationObserver to wait for React to render.",
-        "checksum": "8caf90b3c1ab4d52c8e65110739dcccb",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.12.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T18:22:53Z",
-        "version": "0.2.12.0"
-      },
-      {
-        "changelog": "Fix chain icon on detail pages; progress bar turns green at 100%",
-        "checksum": "61315bfe594a8bc8017353bf35540983",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.11.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T18:15:13Z",
-        "version": "0.2.11.0"
-      },
-      {
-        "changelog": "Add episode progress bar to connection list",
-        "checksum": "7f9a020552c8db0adf1b2dcc74546d44",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.10.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T16:58:49Z",
-        "version": "0.2.10.0"
-      },
-      {
-        "changelog": "Fix user profile links, broken delete buttons, styling polish\n\n- Correct user profile URL: dashboard/users/profile with undashed GUID\n- Delete buttons were broken by HTML in data-label attribute\n- Links: no underline unless hovered\n- Disabled user options visually greyed out",
-        "checksum": "a8d505758ef56f36ac45a63e452039af",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.9.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T16:20:18Z",
-        "version": "0.2.9.0"
-      },
-      {
-        "changelog": "UX improvements to the connection management page\n\n- User names and show names in the overview are now clickable links\n- Series select is lazy: starts empty, shows results after typing 2+ characters\n- User dropdowns start with a blank placeholder; validation prevents saving without a selection",
-        "checksum": "7fa49b8613f372d4a792060ece02abe1",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.8.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T16:04:33Z",
-        "version": "0.2.8.0"
-      },
-      {
-        "changelog": "Fix: connection data JSON property casing\n\n[JsonProperty] attributes were ignored because Jellyfin 10.11.x uses\nSystem.Text.Json. API responses now project to anonymous DTOs with\nexplicit lowercase names so the JavaScript can reliably read them.",
-        "checksum": "ebfd34e2e6b7beb2afeea7762fdb82d8",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.7.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T15:48:45Z",
-        "version": "0.2.7.0"
-      },
-      {
-        "changelog": "Fix: JSON property casing, duplicate user selection, dark select boxes\n\n- Connections were not loading after save due to PascalCase JSON vs\n  camelCase JavaScript — fixed with [JsonProperty] attributes\n- User dropdowns now prevent selecting the same user twice\n- Select boxes now have a dark background in Jellyfin's dark theme",
-        "checksum": "037c65497a8287b4f03f6dea4219e722",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.6.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T15:39:33Z",
-        "version": "0.2.6.0"
-      },
-      {
-        "changelog": "Fix: series list 500 error and empty user dropdown\n\n- GetSeries endpoint now filters at the database level with\n  IncludeItemTypes=Series (using the correct Jellyfin.Data.Enums\n  namespace), avoiding deserialization errors on items from\n  uninstalled plugins\n- Users and series load independently so one failure doesn't block both\n- Minor: icon spacing fix on the Add User button",
-        "checksum": "a0c1d0afe139277ef382ab60e53b4f48",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.5.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T15:22:10Z",
-        "version": "0.2.5.0"
-      },
-      {
-        "changelog": "Fix: Add Connection button does nothing\n\nModals and script were outside the data-role='page' div. Jellyfin only\ninjects that div's content into the live document, so modal elements\nwere never accessible and button clicks threw silent TypeErrors.",
-        "checksum": "521c37695b254978aae8a92bf8b3db6c",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.4.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T15:09:52Z",
-        "version": "0.2.4.0"
-      },
-      {
-        "changelog": "Fix plugin showing as version 0.0.0.0 after installation\n\nGenerateAssemblyInfo=false was suppressing the generated assembly\nversion attributes, so the version baked into the DLL was always\n0.0.0.0 regardless of the release tag. This also caused the plugin\nicon to disappear after installation since Jellyfin couldn't match\nthe installed plugin to a catalog entry.",
-        "checksum": "9523e7bf70a042f6f5734e8fecb59d28",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.3.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T14:57:06Z",
-        "version": "0.2.3.0"
-      },
-      {
-        "changelog": "Fix admin page event handling and apply Jellyfin-native styling\n\n- Buttons on the admin page now work correctly (event handlers were\n  not being registered due to a page lifecycle timing issue)\n- Form errors are now visible instead of being silently swallowed\n- Styling updated to use Jellyfin native CSS classes",
-        "checksum": "ed4b4e646a4303f5aabab2bdb2c5ca04",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.2.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T14:38:08Z",
-        "version": "0.2.2.0"
-      },
-      {
-        "changelog": "Fix admin page rendering in Jellyfin 10.11.x\n\nThe configuration page was blank after clicking the menu item.\nRoot cause: Jellyfin's dashboard page system requires a wrapper div\nwith data-role='page' to locate and mount plugin content.\nInitialization is also moved to the pageshow event so ApiClient is\navailable when the callback fires.",
-        "checksum": "bf66929ebdd8c4bb9f092271bbf485e0",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.1.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T14:18:59Z",
-        "version": "0.2.1.0"
-      },
-      {
-        "changelog": "## What's new\n\n**Variable-size sync groups** — connections now support any number of users (2+), not just pairs.\n\n- When creating or editing a connection, use the **+ Add user** button to include a third, fourth, or more users.\n- When any user in the group watches or marks an episode, all other users in the group are updated automatically.\n- The initial OR-merge on connection creation now runs across all N users in the group.\n\n## Breaking change\n\nThe internal configuration format changed between 0.1 and 0.2.  Any connections configured in 0.1 will need to be re-entered after upgrading.",
-        "checksum": "7d3d514461597abd24a2f008bc990be1",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.0.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T13:20:13Z",
-        "version": "0.2.0.0"
-      },
-      {
-        "changelog": "Initial release of Watch State Sync.\n\nSynchronises watch states between connected user pairs for linked TV shows.\nWhen a connection is first created, existing watch states are merged with\na logical OR: if either user has already watched an episode, it is marked\nas watched for both.",
-        "checksum": "81f2adefd1eddb9dca45eb68b6bd192b",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.1.0.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T13:03:32Z",
-        "version": "0.1.0.0"
+        "timestamp": "2026-05-30T18:53:04Z",
+        "version": "1.0.0.0"
       }
     ]
   }
