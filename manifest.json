@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "Add episode progress bar to connection list\n\nEach row now shows a progress bar and watched/total episode count\nbelow the show name. Progress loads asynchronously so it never\ndelays the page.",
+        "checksum": "67f224f2938830210465857dcd1c380e",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.3.0.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-30T16:55:22Z",
+        "version": "0.2.9.0"
+      },
+      {
         "changelog": "Fix user profile links, broken delete buttons, styling polish\n\n- Correct user profile URL: dashboard/users/profile with undashed GUID\n- Delete buttons were broken by HTML in data-label attribute\n- Links: no underline unless hovered\n- Disabled user options visually greyed out",
         "checksum": "a8d505758ef56f36ac45a63e452039af",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.2.9.0/Jellyfin.Plugin.WatchSync.zip",
