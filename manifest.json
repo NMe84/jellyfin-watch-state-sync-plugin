@@ -1,1 +1,21 @@
-﻿[]
+[
+  {
+    "category": "Sync",
+    "description": "Synchronize watch states between connected user pairs for linked TV shows",
+    "guid": "3d3a1d5a-8f15-4c1c-8da3-5f7e2b1a9c6d",
+    "imageUrl": "https://raw.githubusercontent.com/NMe84/jellyfin-watch-state-sync-plugin/master/sync.png",
+    "name": "Watch State Sync",
+    "overview": "Links TV shows between user pairs. When one user watches or marks an episode as (un)watched, the connected user's watch state is automatically updated in both directions. Manage connections from the Watch State Sync page in the admin dashboard.\n",
+    "owner": "nme84",
+    "versions": [
+      {
+        "changelog": "Initial release of Watch State Sync.\n\nSynchronises watch states between connected user pairs for linked TV shows.",
+        "checksum": "4603a74a6dd3b8b0c037baef5fc8c9d3",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v0.1.0.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-30T12:52:38Z",
+        "version": "0.1.0.0"
+      }
+    ]
+  }
+]
