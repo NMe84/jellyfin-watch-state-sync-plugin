@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "Bug fixes\n\n- Admin page: editing a connection now correctly pre-fills the user dropdowns; placeholder only shows on new rows\n- Sync button popup can now be closed with Escape, keyboard back, or the LG WebOS remote back button\n- Sync button now uses the same class structure as native detail buttons for correct hover styling",
+        "checksum": "4e947d83f7e578b9e4272c78ed148421",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-31T09:27:08Z",
+        "version": "1.0.2.0"
+      },
+      {
         "changelog": "Fix episode count inflation; sort connections list alphabetically\n\n- Progress bar no longer inflates totals with virtual stub episodes\n- Connection list is now sorted: groups by user names, shows within a group by series name",
         "checksum": "76c37e29e8bf813b682372ee88026660",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.1.0/Jellyfin.Plugin.WatchSync.zip",
