@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "Fix: editing a connection pre-selects the wrong show\n\nseriesId from /WatchSync/connections had dashes while option values from\n/WatchSync/series did not. selectByValue found no match and fell back to\nthe first filtered result, which could be a different show with a similar\nname (e.g. Queen Charlotte instead of Bridgerton).",
+        "checksum": "c15b24baa8aebc83b3849993ededc016",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.3/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-31T10:03:44Z",
+        "version": "1.0.2.3"
+      },
+      {
         "changelog": "Fix: edit user dropdowns still not pre-filling\n\nThe users endpoint returns undashed GUIDs (32 chars) while the\nconnections endpoint returns dashed GUIDs (36 chars). Normalized\nbefore comparison so the selection now matches correctly.",
         "checksum": "1ae661ef85efb1549e0338e76ce83c6f",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.2/Jellyfin.Plugin.WatchSync.zip",
