@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "Fix: sync button missing ~50% of the time on series, season and episode pages\n\ncheckPage() fires immediately on load. If ApiClient was not yet ready,\nthe early-exit fired but lastHash was already updated, so the 800ms\nretry saw no hash change and skipped. Now lastHash is only committed\nafter ApiClient is confirmed available.",
+        "checksum": "d6d0bb26668972bc30d5fe6e1aafa1ef",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.6/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-05-31T11:00:22Z",
+        "version": "1.0.2.6"
+      },
+      {
         "changelog": "Fix: sync button disappears intermittently\n\nReact re-renders the detail page button bar after our injection,\nwiping the button. A MutationObserver now watches the container and\nre-injects as soon as the button disappears.",
         "checksum": "17c678d0b2064c3487ec662b6765df4c",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.5/Jellyfin.Plugin.WatchSync.zip",
