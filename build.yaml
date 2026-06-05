@@ -1,0 +1,16 @@
+﻿---
+name: "Watch State Sync"
+guid: "3d3a1d5a-8f15-4c1c-8da3-5f7e2b1a9c6d"
+version: "1.0.3.0"
+targetAbi: "10.11.9.0"
+framework: "net9.0"
+description: "Synchronize watch states between connected users for linked TV shows"
+overview: >
+  Links TV shows between groups of two or more users. When any user in a group watches
+  or marks an episode as (un)watched, all other users in the group are updated
+  automatically. Manage connections from the Watch State Sync page in the admin dashboard.
+imageUrl: "https://raw.githubusercontent.com/NMe84/jellyfin-watch-state-sync-plugin/master/sync.png"
+owner: "nme84"
+category: "Sync"
+artifacts:
+  - "Jellyfin.Plugin.WatchSync.dll"

@@ -1,0 +1,44 @@
+# ── .NET build output ─────────────────────────────────────────────────────────
+bin/
+obj/
+out/
+
+# ── NuGet packages ────────────────────────────────────────────────────────────
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# NuGet restore cache (only needed locally)
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ── Visual Studio / Rider / VS Code ───────────────────────────────────────────
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.pidb
+*.userprefs
+
+# ── OS files ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Test results ──────────────────────────────────────────────────────────────
+TestResults/
+coverage*/
+*.trx
+*.coveragexml
+
+# ── Claude Code session data ──────────────────────────────────────────────────
+.claude/
+
+# ── Manifest/ is its own git repository (remote: jellyfin-plugins).
+# Exclude it from the plugin repo's tracking entirely.
+Manifest/

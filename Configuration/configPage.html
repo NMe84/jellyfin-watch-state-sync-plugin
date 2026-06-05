@@ -1,0 +1,553 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Watch State Synchronization</title>
+</head>
+<body>
+
+<div id="WatchSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
+
+<style>
+  .ws-link { color: inherit; text-decoration: none; }
+  .ws-link:hover { text-decoration: underline; cursor: pointer; }
+</style>
+
+    <div class="content-primary">
+
+        <div class="verticalSection verticalSection-extrabottompadding">
+            <div class="sectionTitleContainer padded-left padded-right" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1em;">
+                <h2 class="sectionTitle">Watch State Synchronization</h2>
+                <button type="button" id="btnAdd" class="raised button-submit emby-button" style="margin:0">
+                    <i class="material-icons">add</i>
+                    Add Connection
+                </button>
+            </div>
+
+            <div id="wsBanner" class="informationContainer padded-left padded-right" style="display:none;margin-bottom:1em;"></div>
+
+            <div id="connectionsList" class="padded-left padded-right"></div>
+        </div>
+
+    </div>
+
+<!-- ── Add / Edit overlay ── -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+    <div class="focuscontainer" style="background:var(--color-card-background, #202020);border-radius:2px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:24px;">
+        <h3 class="formDialogHeaderTitle" id="modalTitle" style="margin:0 0 1.2em;">Add Connection</h3>
+
+        <div id="formError" style="display:none;color:#f44336;margin-bottom:12px;font-size:.9em;"></div>
+
+        <div class="inputContainer" style="margin-bottom:.5em;">
+            <label class="inputLabel inputLabelUnfocused">Users (minimum 2)</label>
+        </div>
+
+        <div id="userRows"></div>
+
+        <div class="inputContainer" style="margin-bottom:1.2em;">
+            <button type="button" id="btnAddUser" class="raised emby-button" style="margin:0">
+                <i class="material-icons" style="margin-right:6px;">person_add</i>
+                Add user
+            </button>
+        </div>
+
+        <div class="inputContainer">
+            <label class="inputLabel inputLabelUnfocused" for="seriesFilter">TV Show</label>
+            <input type="text" id="seriesFilter" is="emby-input" class="emby-input" placeholder="Filter shows…" autocomplete="off">
+            <select id="selSeries" is="emby-select" class="emby-select" size="6" style="width:100%;margin-top:4px;height:auto;background:#202020;color:#dddddd;border:1px solid rgba(255,255,255,.12);"></select>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1.5em;">
+            <button type="button" id="btnCancelEdit" class="raised emby-button">Cancel</button>
+            <button type="button" id="btnSaveEdit" class="raised button-submit emby-button">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Confirm overlay ── -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+    <div class="focuscontainer" style="background:var(--color-card-background, #202020);border-radius:2px;width:100%;max-width:420px;padding:24px;">
+        <h3 class="formDialogHeaderTitle" id="confirmTitle" style="margin:0 0 .8em;"></h3>
+        <p id="confirmMessage" style="margin:0 0 1.5em;line-height:1.5;"></p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button type="button" id="btnCancelConfirm" class="raised emby-button">Cancel</button>
+            <button type="button" id="btnConfirm" class="raised emby-button" style="background:#c0392b;color:#fff;">Remove</button>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+'use strict';
+
+(function () {
+
+    // ── Module-level state (survives between pageshow calls) ──────────────────
+    var allConnections = [];
+    var allUsers       = [];
+    var allSeries      = [];
+    var editingId      = null;
+    var confirmResolver = null;
+
+    // ── Auth helpers ──────────────────────────────────────────────────────────
+    function getBase() {
+        return (window.ApiClient && window.ApiClient.serverAddress())
+            ? window.ApiClient.serverAddress()
+            : window.location.origin;
+    }
+    function authHeaders() {
+        var token = window.ApiClient ? window.ApiClient.accessToken() : '';
+        return {
+            'Authorization': 'MediaBrowser Token="' + token + '"',
+            'Content-Type': 'application/json'
+        };
+    }
+    function apiFetch(path, options) {
+        options = options || {};
+        options.headers = authHeaders();
+        return fetch(getBase() + path, options).then(function (res) {
+            if (!res.ok) return res.text().then(function (t) { throw new Error(t || res.statusText); });
+            if (res.status === 204) return null;
+            return res.json();
+        });
+    }
+
+    // ── Rendering helpers ─────────────────────────────────────────────────────
+    function esc(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    // Plain text — safe to use in data-* attributes and confirm messages.
+    function formatUsersText(users) {
+        var names = users.map(function (u) { return u.name; });
+        if (names.length === 1) return names[0];
+        return names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
+    }
+
+    // HTML with clickable links — only for visible rendering, never inside attributes.
+    function formatUsers(users) {
+        var names = users.map(function (u) {
+            // Jellyfin's profile page requires the GUID without dashes.
+            var uid = u.id.replace(/-/g, '');
+            return '<a class="ws-link" href="#/dashboard/users/profile?userId=' + uid + '" title="User profile">' + esc(u.name) + '</a>';
+        });
+        if (names.length === 1) return names[0];
+        return names.slice(0, -1).join(', ') + ' &amp; ' + names[names.length - 1];
+    }
+    function groupKey(c) {
+        return c.users.map(function (u) { return u.id; }).sort().join('|');
+    }
+
+    // ── Main render ───────────────────────────────────────────────────────────
+    function render(listEl) {
+        if (!allConnections.length) {
+            listEl.innerHTML =
+                '<div class="noItemsMessage" style="padding:2em 0;text-align:center;">' +
+                '<p>No connections configured yet.</p>' +
+                '<button type="button" class="raised button-submit emby-button" onclick="document.getElementById(\'btnAdd\').click()">' +
+                'Add your first connection</button></div>';
+            return;
+        }
+
+        // Group by user set
+        var map = {};
+        var order = [];
+        allConnections.forEach(function (c) {
+            var k = groupKey(c);
+            if (!map[k]) { map[k] = { users: c.users, key: k, items: [] }; order.push(k); }
+            map[k].items.push(c);
+        });
+
+        // Sort groups by the plain-text user label, then sort shows within each group by name.
+        order.sort(function (a, b) {
+            return formatUsersText(map[a].users).localeCompare(formatUsersText(map[b].users));
+        });
+
+        var html = '';
+        order.forEach(function (k) {
+            var g = map[k];
+            g.items.sort(function (a, b) { return (a.seriesName || '').localeCompare(b.seriesName || ''); });
+            var htmlLabel = formatUsers(g.users);         // <a> links — for visual display only
+            var textLabel = formatUsersText(g.users);     // plain text — safe for data-* attributes
+            html += '<div style="margin-bottom:1.5em;">';
+            html += '<div style="border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:.5em;margin-bottom:.5em;">';
+            html += '<h3 style="margin:0;font-size:1em;font-weight:600;">🔗 ' + htmlLabel + '</h3>';
+            html += '</div>';
+            g.items.forEach(function (c) {
+                html += '<div data-cid="' + c.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);">';
+                // Left column: show link + progress bar
+                html += '<div style="flex:1;min-width:0;padding-right:14px;">';
+                html += '<a class="ws-link" href="#/details?id=' + esc(c.seriesId) + '" title="View show">' + esc(c.seriesName) + '</a>';
+                html += '<div style="margin-top:6px;">';
+                html += '<div style="background:rgba(255,255,255,.12);border-radius:2px;height:4px;overflow:hidden;">' +
+                        '<div class="ws-bar" style="background:#00a4dc;height:100%;width:0;transition:width .4s ease;"></div></div>';
+                html += '<span class="ws-text" style="font-size:11px;color:#888;display:block;margin-top:3px;">…</span>';
+                html += '</div></div>';
+                html += '<span style="display:flex;gap:6px;">';
+                html += '<button type="button" class="raised emby-button" style="padding:4px 8px;" ' +
+                        'data-action="edit" data-id="' + c.id + '" title="Edit">' +
+                        '<i class="material-icons" style="font-size:16px;">edit</i></button>';
+                html += '<button type="button" class="raised emby-button" style="padding:4px 8px;" ' +
+                        'data-action="delete" data-id="' + c.id + '" data-series="' + esc(c.seriesName) + '" data-label="' + esc(textLabel) + '" title="Remove">' +
+                        '<i class="material-icons" style="font-size:16px;">delete</i></button>';
+                html += '</span></div>';
+            });
+            html += '</div>';
+        });
+        listEl.innerHTML = html;
+    }
+
+    // ── Populate selects ──────────────────────────────────────────────────────
+    // Dark-mode inline style applied to every user <select> and the series <select>.
+    var SELECT_STYLE = 'flex:1;background:#202020;color:#dddddd;border:1px solid rgba(255,255,255,.12);';
+
+    // Normalize a GUID to the no-dash format returned by /WatchSync/users.
+    function normalizeId(id) { return id ? id.replace(/-/g, '') : ''; }
+
+    function buildUserSelect(selectedId, userRowsEl) {
+        var cleanId = normalizeId(selectedId);
+        var sel = document.createElement('select');
+        sel.setAttribute('is', 'emby-select');
+        sel.className = 'emby-select';
+        sel.style.cssText = SELECT_STYLE;
+        // Show the placeholder only for new (empty) rows, not when pre-filling an edit.
+        if (!cleanId) {
+            sel.add(new Option('— Select a user —', ''));
+        }
+        allUsers.forEach(function (u) { sel.add(new Option(u.name, u.id)); });
+        if (cleanId) { sel.value = cleanId; }
+        sel.addEventListener('change', function () { syncUserSelectOptions(userRowsEl); });
+        return sel;
+    }
+
+    function addUserRow(selectedId, userRowsEl) {
+        var row = document.createElement('div');
+        row.className = 'inputContainer';
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+        var sel = buildUserSelect(selectedId || '', userRowsEl);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'raised emby-button';
+        btn.title = 'Remove user';
+        btn.style.cssText = 'padding:6px 10px;flex-shrink:0;';
+        btn.innerHTML = '<i class="material-icons" style="font-size:16px;">remove</i>';
+        btn.addEventListener('click', function () {
+            if (userRowsEl.children.length > 2) {
+                row.remove();
+                updateRemoveBtns(userRowsEl);
+                syncUserSelectOptions(userRowsEl);
+            }
+        });
+        row.appendChild(sel);
+        row.appendChild(btn);
+        userRowsEl.appendChild(row);
+        updateRemoveBtns(userRowsEl);
+        syncUserSelectOptions(userRowsEl);
+    }
+
+    function updateRemoveBtns(userRowsEl) {
+        var rows = userRowsEl.children;
+        var disable = rows.length <= 2;
+        for (var i = 0; i < rows.length; i++) {
+            var btn = rows[i].querySelector('button');
+            if (btn) btn.disabled = disable;
+        }
+    }
+
+    /// Disable already-chosen users in every OTHER row so duplicates are impossible.
+    function syncUserSelectOptions(userRowsEl) {
+        var rows = userRowsEl.children;
+        var chosen = [];
+        for (var i = 0; i < rows.length; i++) {
+            var s = rows[i].querySelector('select');
+            chosen.push(s ? s.value : '');
+        }
+        for (var i = 0; i < rows.length; i++) {
+            var s = rows[i].querySelector('select');
+            if (!s) continue;
+            for (var j = 0; j < s.options.length; j++) {
+                var inOtherRow = false;
+                for (var k = 0; k < chosen.length; k++) {
+                    if (k !== i && chosen[k] === s.options[j].value && s.options[j].value !== '') {
+                        inOtherRow = true;
+                        break;
+                    }
+                }
+                s.options[j].disabled = inOtherRow;
+                s.options[j].style.color = inOtherRow ? '#666' : '';
+                s.options[j].style.fontStyle = inOtherRow ? 'italic' : '';
+            }
+        }
+    }
+
+    function populateSeriesSelect(filter, selSeries) {
+        selSeries.innerHTML = '';
+        if (filter.length < 2) {
+            var hint = new Option(filter.length === 0
+                ? 'Type at least 2 characters to search…'
+                : 'Type 1 more character…', '');
+            hint.disabled = true;
+            selSeries.add(hint);
+            return;
+        }
+        var lower = filter.toLowerCase();
+        var list = allSeries.filter(function (s) { return s.name.toLowerCase().indexOf(lower) >= 0; });
+        if (list.length === 0) {
+            var none = new Option('No shows found', '');
+            none.disabled = true;
+            selSeries.add(none);
+        } else {
+            list.forEach(function (s) { selSeries.add(new Option(s.name, s.id)); });
+        }
+    }
+
+    function selectByValue(sel, val) {
+        for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === val) { sel.selectedIndex = i; return; }
+        }
+    }
+
+    // ── Modal helpers ─────────────────────────────────────────────────────────
+    function showModal(el) { el.style.display = 'flex'; }
+    function hideModal(el) { el.style.display = 'none'; }
+
+    function confirm(title, msg, confirmModal, confirmTitle, confirmMessage) {
+        confirmTitle.textContent = title;
+        confirmMessage.innerHTML = msg;
+        showModal(confirmModal);
+        return new Promise(function (resolve) { confirmResolver = resolve; });
+    }
+
+    function showFormError(formError, msg) {
+        formError.textContent = msg;
+        formError.style.display = 'block';
+    }
+    function clearFormError(formError) { formError.style.display = 'none'; }
+
+    function showBanner(bannerEl, msg, isError) {
+        bannerEl.textContent = msg;
+        bannerEl.style.display = 'block';
+        bannerEl.style.color = isError ? '#f44336' : '#00a4dc';
+        setTimeout(function () { bannerEl.style.display = 'none'; }, 3500);
+    }
+
+    // ── Data loading ──────────────────────────────────────────────────────────
+    function loadConnections(listEl, bannerEl) {
+        return apiFetch('/WatchSync/connections').then(function (data) {
+            allConnections = data || [];
+            render(listEl);
+            // Load progress asynchronously after render — non-critical, no error banner needed
+            apiFetch('/WatchSync/progress').then(function (progress) {
+                if (!progress) return;
+                progress.forEach(function (p) {
+                    var row  = listEl.querySelector('[data-cid="' + p.connectionId + '"]');
+                    if (!row) return;
+                    var bar  = row.querySelector('.ws-bar');
+                    var text = row.querySelector('.ws-text');
+                    if (!bar || !text) return;
+                    var pct = p.total > 0 ? Math.round(p.watched / p.total * 100) : 0;
+                    bar.style.width = pct + '%';
+                    bar.style.background = pct >= 100 ? '#27ae60' : '#00a4dc';
+                    text.textContent = p.watched + ' / ' + p.total + ' episode' + (p.total !== 1 ? 's' : '');
+                });
+            }).catch(function () { /* progress is cosmetic — ignore failures */ });
+        }).catch(function (err) {
+            showBanner(bannerEl, 'Failed to load connections: ' + err.message, true);
+        });
+    }
+
+    function loadFormData(selSeries) {
+        // Load users and series independently so a failure in one does not block the other.
+        var usersP = apiFetch('/WatchSync/users').then(function (data) {
+            allUsers = data || [];
+        }).catch(function (err) {
+            console.error('WatchSync: failed to load users', err);
+        });
+        var seriesP = apiFetch('/WatchSync/series').then(function (data) {
+            allSeries = data || [];
+            // Don't auto-populate — the hint message is already shown; the user types to search.
+        }).catch(function (err) {
+            console.error('WatchSync: failed to load series', err);
+            throw err; // re-throw so the caller's .catch() still fires for the banner
+        });
+        return Promise.all([usersP, seriesP]);
+    }
+
+    // ── Open edit modal ───────────────────────────────────────────────────────
+    function openEditModal(connection, dom) {
+        clearFormError(dom.formError);
+        editingId = connection ? connection.id : null;
+        dom.modalTitle.textContent = connection ? 'Edit Connection' : 'Add Connection';
+        dom.userRowsEl.innerHTML = '';
+
+        function populate() {
+            if (connection) {
+                // Edit: prefill the filter with the show name so the list shows up immediately
+                dom.seriesFilter.value = connection.seriesName || '';
+                populateSeriesSelect(connection.seriesName || '', dom.selSeries);
+                connection.users.forEach(function (u) { addUserRow(u.id, dom.userRowsEl); });
+                selectByValue(dom.selSeries, normalizeId(connection.seriesId));
+                // Re-apply selected values after all rows are in the DOM and after any
+                // syncUserSelectOptions side-effects that could have altered select state.
+                syncUserSelectOptions(dom.userRowsEl);
+                var rows = dom.userRowsEl.children;
+                connection.users.forEach(function (u, i) {
+                    if (i < rows.length) {
+                        var sel = rows[i].querySelector('select');
+                        if (sel) sel.value = normalizeId(u.id);
+                    }
+                });
+            } else {
+                // New: empty filter, show the search hint
+                dom.seriesFilter.value = '';
+                populateSeriesSelect('', dom.selSeries);
+                addUserRow('', dom.userRowsEl);
+                addUserRow('', dom.userRowsEl);
+                syncUserSelectOptions(dom.userRowsEl);
+            }
+        }
+
+        if (allUsers.length === 0 || allSeries.length === 0) {
+            loadFormData(dom.selSeries).then(populate).catch(function (err) {
+                showFormError(dom.formError, 'Could not load users/shows: ' + err.message);
+            });
+        } else {
+            populate();
+        }
+
+        showModal(dom.editModal);
+    }
+
+    // ── Save connection ───────────────────────────────────────────────────────
+    function saveConnection(dom, listEl, bannerEl) {
+        clearFormError(dom.formError);
+        var selects = dom.userRowsEl.querySelectorAll('select');
+        var userIds = [];
+        for (var i = 0; i < selects.length; i++) { userIds.push(selects[i].value); }
+        var seriesId = dom.selSeries.value;
+
+        if (!seriesId)              { showFormError(dom.formError, 'Please select a TV show.'); return; }
+        if (userIds.length < 2)     { showFormError(dom.formError, 'At least two users are required.'); return; }
+        if (userIds.some(function (id) { return !id; })) { showFormError(dom.formError, 'Please select a user in each row.'); return; }
+        var unique = userIds.filter(function (id, i, a) { return a.indexOf(id) === i; });
+        if (unique.length !== userIds.length) { showFormError(dom.formError, 'Each user may only appear once.'); return; }
+
+        var body = JSON.stringify({
+            seriesId: seriesId,
+            users: userIds.map(function (id) { return { id: id }; })
+        });
+        var url  = editingId ? '/WatchSync/connections/' + editingId : '/WatchSync/connections';
+        var method = editingId ? 'PUT' : 'POST';
+
+        apiFetch(url, { method: method, body: body }).then(function () {
+            hideModal(dom.editModal);
+            showBanner(bannerEl, editingId ? 'Connection updated.' : 'Connection added.', false);
+            return loadConnections(listEl, bannerEl);
+        }).catch(function (err) {
+            showFormError(dom.formError, err.message || 'An error occurred.');
+        });
+    }
+
+    // ── Page initialisation (runs on every pageshow for this page) ────────────
+    document.addEventListener('pageshow', function (e) {
+        if (e.target.id !== 'WatchSyncConfigPage') return;
+
+        // Capture DOM refs
+        var listEl       = document.getElementById('connectionsList');
+        var bannerEl     = document.getElementById('wsBanner');
+        var editModal    = document.getElementById('editModal');
+        var confirmModal = document.getElementById('confirmModal');
+        var dom = {
+            editModal:    editModal,
+            modalTitle:   document.getElementById('modalTitle'),
+            formError:    document.getElementById('formError'),
+            userRowsEl:   document.getElementById('userRows'),
+            selSeries:    document.getElementById('selSeries'),
+            seriesFilter: document.getElementById('seriesFilter'),
+            confirmModal: confirmModal,
+            confirmTitle: document.getElementById('confirmTitle'),
+            confirmMessage: document.getElementById('confirmMessage')
+        };
+
+        // ── Button events ─────────────────────────────────────────────────────
+        document.getElementById('btnAdd').addEventListener('click', function () {
+            openEditModal(null, dom);
+        });
+
+        document.getElementById('btnAddUser').addEventListener('click', function () {
+            addUserRow('', dom.userRowsEl);
+        });
+
+        document.getElementById('btnSaveEdit').addEventListener('click', function () {
+            saveConnection(dom, listEl, bannerEl);
+        });
+
+        document.getElementById('btnCancelEdit').addEventListener('click', function () {
+            hideModal(editModal);
+        });
+
+        document.getElementById('btnConfirm').addEventListener('click', function () {
+            hideModal(confirmModal);
+            if (confirmResolver) { confirmResolver(true); confirmResolver = null; }
+        });
+
+        document.getElementById('btnCancelConfirm').addEventListener('click', function () {
+            hideModal(confirmModal);
+            if (confirmResolver) { confirmResolver(false); confirmResolver = null; }
+        });
+
+        dom.seriesFilter.addEventListener('input', function () {
+            populateSeriesSelect(this.value, dom.selSeries);
+        });
+
+        // Close overlays on backdrop click
+        [editModal, confirmModal].forEach(function (m) {
+            m.addEventListener('click', function (ev) {
+                if (ev.target === m) {
+                    hideModal(m);
+                    if (confirmResolver) { confirmResolver(false); confirmResolver = null; }
+                }
+            });
+        });
+
+        // ── Connection list delegation ─────────────────────────────────────────
+        listEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            var action = btn.dataset.action;
+
+            if (action === 'edit') {
+                var c = allConnections.find(function (x) { return x.id === btn.dataset.id; });
+                if (c) openEditModal(c, dom);
+            }
+
+            if (action === 'delete') {
+                confirm(
+                    'Remove connection',
+                    'Remove the connection for <strong>' + btn.dataset.series + '</strong> from the group <strong>' + btn.dataset.label + '</strong>?',
+                    confirmModal, dom.confirmTitle, dom.confirmMessage
+                ).then(function (ok) {
+                    if (!ok) return;
+                    apiFetch('/WatchSync/connections/' + btn.dataset.id, { method: 'DELETE' })
+                        .then(function () {
+                            showBanner(bannerEl, 'Connection removed.', false);
+                            return loadConnections(listEl, bannerEl);
+                        }).catch(function (err) { showBanner(bannerEl, 'Error: ' + err.message, true); });
+                });
+            }
+
+        });
+
+        // ── Initial data load ─────────────────────────────────────────────────
+        loadConnections(listEl, bannerEl);
+        loadFormData(dom.selSeries).catch(function (err) {
+            showBanner(bannerEl, 'Could not load users/shows: ' + err.message, true);
+        });
+    });
+
+})();
+</script>
+
+</div><!-- #WatchSyncConfigPage -->
+
+</body>
+</html>

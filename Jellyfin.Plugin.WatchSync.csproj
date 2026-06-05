@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.WatchSync</RootNamespace>
+    <AssemblyName>Jellyfin.Plugin.WatchSync</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      ExcludeAssets="runtime" is required for all Jellyfin packages.
+      Without it, the plugin DLL will try to register its own copies of
+      Jellyfin assemblies and fail to load.
+    -->
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.10" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Model" Version="10.11.10" ExcludeAssets="runtime" />
+    <!--
+      Newtonsoft.Json is already shipped by Jellyfin; ExcludeAssets="runtime" prevents
+      bundling our own copy. We only need it at compile time to call JObject on the
+      JavaScript Injector bridge.
+    -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\configPage.html" />
+  </ItemGroup>
+
+</Project>
