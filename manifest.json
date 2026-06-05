@@ -9,92 +9,12 @@
     "owner": "nme84",
     "versions": [
       {
-        "changelog": "Fix sync button reliability and remote control improvements\n\n- Sync button now appears reliably: replaced MutationObserver approach with poll-based re-injection; button is re-injected within 800ms whenever React re-renders the detail page action bar\n- Re-focuses the sync button after the popup is closed\n- Popup back-button no longer navigates away (stopPropagation in capture phase)\n- OK button receives focus when popup opens",
-        "checksum": "c4a464d57d17457eb6eab7c92fa36545",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.8/Jellyfin.Plugin.WatchSync.zip",
+        "changelog": "Flattened repository structure: all plugin files now live at the repository root.",
+        "checksum": "dcedd636bd672d3916c5bfea72d530e7",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.3.0/Jellyfin.Plugin.WatchSync.zip",
         "targetAbi": "10.11.9.0",
-        "timestamp": "2026-06-01T17:51:02Z",
-        "version": "1.0.2.8"
-      },
-      {
-        "changelog": "Fix: popup back-button closes modal but no longer navigates back\n\n- keydown listener now uses capture phase and calls stopPropagation+preventDefault so Jellyfin's own back-navigation never sees the event\n- OK button also calls stopPropagation on click\n- OK button receives focus when the modal opens so pressing OK/Enter on the remote closes it",
-        "checksum": "ac4aa82abaf1bab8e6c3907326d604bc",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.7/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-31T13:15:37Z",
-        "version": "1.0.2.7"
-      },
-      {
-        "changelog": "Fix: sync button missing ~50% of the time on series, season and episode pages\n\ncheckPage() fires immediately on load. If ApiClient was not yet ready,\nthe early-exit fired but lastHash was already updated, so the 800ms\nretry saw no hash change and skipped. Now lastHash is only committed\nafter ApiClient is confirmed available.",
-        "checksum": "d6d0bb26668972bc30d5fe6e1aafa1ef",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.6/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-31T11:00:22Z",
-        "version": "1.0.2.6"
-      },
-      {
-        "changelog": "Fix: sync button disappears intermittently\n\nReact re-renders the detail page button bar after our injection,\nwiping the button. A MutationObserver now watches the container and\nre-injects as soon as the button disappears.",
-        "checksum": "17c678d0b2064c3487ec662b6765df4c",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.5/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-31T10:52:50Z",
-        "version": "1.0.2.5"
-      },
-      {
-        "changelog": "Fix: sync button not showing on show pages\n\n.btnPlaystate can carry visibility state classes that were being copied\nto our button, making it invisible. Now uses .btnMoreCommands as the\nstyle reference since it is always visible on detail pages.",
-        "checksum": "e7a76ae70dede60969168bf68dcf3318",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.4/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-31T10:43:13Z",
-        "version": "1.0.2.4"
-      },
-      {
-        "changelog": "Fix: editing a connection pre-selects the wrong show\n\nseriesId from /WatchSync/connections had dashes while option values from\n/WatchSync/series did not. selectByValue found no match and fell back to\nthe first filtered result, which could be a different show with a similar\nname (e.g. Queen Charlotte instead of Bridgerton).",
-        "checksum": "c15b24baa8aebc83b3849993ededc016",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.3/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-31T10:03:44Z",
-        "version": "1.0.2.3"
-      },
-      {
-        "changelog": "Fix: edit user dropdowns still not pre-filling\n\nThe users endpoint returns undashed GUIDs (32 chars) while the\nconnections endpoint returns dashed GUIDs (36 chars). Normalized\nbefore comparison so the selection now matches correctly.",
-        "checksum": "1ae661ef85efb1549e0338e76ce83c6f",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.2/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-31T09:55:07Z",
-        "version": "1.0.2.2"
-      },
-      {
-        "changelog": "Bug fixes\n\n- Admin page edit: user dropdowns now correctly pre-fill with the saved users\n- Sync button copies class list from .btnPlaystate (excluding btnPlaystate and playstatebutton-played) for consistent theming across all Jellyfin themes",
-        "checksum": "093301961f16b904a2e16aab1d33d5a1",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.1/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-31T09:42:15Z",
-        "version": "1.0.2.1"
-      },
-      {
-        "changelog": "Bug fixes\n\n- Admin page: editing a connection now correctly pre-fills the user dropdowns; placeholder only shows on new rows\n- Sync button popup can now be closed with Escape, keyboard back, or the LG WebOS remote back button\n- Sync button now uses the same class structure as native detail buttons for correct hover styling",
-        "checksum": "4e947d83f7e578b9e4272c78ed148421",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.2.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-31T09:27:08Z",
-        "version": "1.0.2.0"
-      },
-      {
-        "changelog": "Fix episode count inflation; sort connections list alphabetically\n\n- Progress bar no longer inflates totals with virtual stub episodes\n- Connection list is now sorted: groups by user names, shows within a group by series name",
-        "checksum": "76c37e29e8bf813b682372ee88026660",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.1.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T20:07:17Z",
-        "version": "1.0.1.0"
-      },
-      {
-        "changelog": "Initial stable release of Watch State Sync\n\nSynchronises watch states between connected groups of users for linked TV shows.\n\n**Features:**\n- Connect any number of users to a show — when one watches an episode all others are updated automatically\n- Initial OR-merge when a connection is created: episodes already watched by either user are immediately synced\n- Episode progress bar and watch count visible on each connection in the admin page\n- Link button in the detail page action bar showing who you are synced with\n- Admin page accessible from the Jellyfin sidebar under Watch State Sync",
-        "checksum": "6c91d65755c562ad495968dc64e50826",
-        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.0.0/Jellyfin.Plugin.WatchSync.zip",
-        "targetAbi": "10.11.9.0",
-        "timestamp": "2026-05-30T18:53:04Z",
-        "version": "1.0.0.0"
+        "timestamp": "2026-06-05T19:41:01Z",
+        "version": "1.0.3.0"
       }
     ]
   }
