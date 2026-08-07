@@ -20,8 +20,16 @@ namespace Jellyfin.Plugin.WatchSync.Services;
 ///      the affected user+series appears in any configured connection.
 ///   3. For each match, copy the Played state to ALL other users in the group.
 ///
-/// Writes use UserDataSaveReason.Import so they do not re-trigger this handler.
-/// The _syncInProgress set provides a secondary guard against concurrent fan-out.
+/// Unwatch only propagates from a manual toggle (the checkmark).  A partial
+/// rewatch fires PlaybackFinished with Played=false; that is ignored so it does
+/// not unwatch the episode for the rest of the group.
+///
+/// Propagated writes reuse the SOURCE save reason (PlaybackFinished / TogglePlayed)
+/// rather than Import, so scrobbler plugins (Trakt, Simkl, …) that listen for
+/// UserDataSaved fire for every user in the group, not just the one who was
+/// actively playing.  Re-entrancy is bounded by the equality check in ApplySync
+/// (once the target already matches the source state, no further write occurs);
+/// _syncInProgress additionally guards against concurrent fan-out.
 /// </summary>
 public class WatchSyncService : IHostedService, IDisposable
 {
@@ -64,6 +72,14 @@ public class WatchSyncService : IHostedService, IDisposable
         {
             return;
         }
+
+        // Rewatching an already-watched episode makes Jellyfin fire PlaybackFinished
+        // with Played=false when the viewer stops before the end.  That must never
+        // unwatch the episode for the rest of the group — only a manual toggle (the
+        // checkmark, i.e. TogglePlayed) is allowed to unwatch.  So ignore any
+        // playback-driven unwatch entirely.
+        if (e.SaveReason == UserDataSaveReason.PlaybackFinished && !e.UserData.Played)
+            return;
 
         if (e.Item is not Episode episode)
             return;
@@ -147,11 +163,16 @@ public class WatchSyncService : IHostedService, IDisposable
             targetData.LastPlayedDate ??= e.UserData.LastPlayedDate;
         }
 
+        // Reuse the source reason (PlaybackFinished / TogglePlayed) rather than
+        // Import so scrobbler plugins listening for UserDataSaved fire for this
+        // user too.  The equality check above stops the resulting re-entrant
+        // UserDataSaved from looping: once the target matches the source state,
+        // the next pass returns before writing.
         _userDataManager.SaveUserData(
             targetUser,
             e.Item,
             targetData,
-            UserDataSaveReason.Import,
+            e.SaveReason,
             CancellationToken.None);
 
         _logger.LogInformation(
