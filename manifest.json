@@ -9,6 +9,14 @@
     "owner": "nme84",
     "versions": [
       {
+        "changelog": "## v1.1.0.0\n\n### Fixed\n- **Rewatching no longer unwatches the episode for the whole group** — starting a rewatch and stopping before the end fires a playback event with the episode marked unwatched, which was being propagated to everyone. Playback-driven unwatch is now ignored; the **only** way to unwatch an episode for the group is a manual toggle (the checkmark) by one of the users.\n\n### Changed\n- **Scrobbling now fires for every linked user** — when two linked users finish an episode together, scrobbler plugins (Trakt, Simkl, …) previously only scrobbled for the user who was actively playing. Synced watch states are now written with the original playback/toggle reason instead of a silent import, so the scrobbler plugins fire for the other user(s) too.",
+        "checksum": "191147fb3cdc7d0100b7de4fb5dd8919",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.1.0.0/Jellyfin.Plugin.WatchSync.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-08-07T12:02:32Z",
+        "version": "1.1.0.0"
+      },
+      {
         "changelog": "Flattened repository structure: all plugin files now live at the repository root.",
         "checksum": "dcedd636bd672d3916c5bfea72d530e7",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.0.3.0/Jellyfin.Plugin.WatchSync.zip",
