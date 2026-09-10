@@ -9,7 +9,23 @@
     "owner": "nme84",
     "versions": [
       {
-        "changelog": "## v1.1.0.0\n\n### Fixed\n- **Rewatching no longer unwatches the episode for the whole group** — starting a rewatch and stopping before the end fires a playback event with the episode marked unwatched, which was being propagated to everyone. Playback-driven unwatch is now ignored; the **only** way to unwatch an episode for the group is a manual toggle (the checkmark) by one of the users.\n\n### Changed\n- **Scrobbling now fires for every linked user** — when two linked users finish an episode together, scrobbler plugins (Trakt, Simkl, …) previously only scrobbled for the user who was actively playing. Synced watch states are now written with the original playback/toggle reason instead of a silent import, so the scrobbler plugins fire for the other user(s) too.",
+        "changelog": "## v1.2.0.0 \u2014 Jellyfin 12 support\n\nJellyfin 12 moved the server to **.NET 10**, which stops plugins built for Jellyfin 10.x from loading. This release ships builds for **both** generations from a single version.\n\n### Added\n- **Jellyfin 12 support.** Every release now produces two builds:\n  - `Jellyfin.Plugin.WatchSync-jf10.zip` \u2014 .NET 9, for Jellyfin **10.11.9+**\n  - `Jellyfin.Plugin.WatchSync-jf12.zip` \u2014 .NET 10, for Jellyfin **12**\n- The plugin catalogue lists both, and **Jellyfin installs the right one automatically** \u2014 nothing to choose.\n\nNo functional changes to watch-state syncing; this is a compatibility release.",
+        "checksum": "6b763214416e7ea85f0f23e302c2183b",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.2.0.0/Jellyfin.Plugin.WatchSync-jf12.zip",
+        "targetAbi": "12.0.0.0",
+        "timestamp": "2026-09-10T21:56:46Z",
+        "version": "1.2.0.0"
+      },
+      {
+        "changelog": "## v1.2.0.0 \u2014 Jellyfin 12 support\n\nJellyfin 12 moved the server to **.NET 10**, which stops plugins built for Jellyfin 10.x from loading. This release ships builds for **both** generations from a single version.\n\n### Added\n- **Jellyfin 12 support.** Every release now produces two builds:\n  - `Jellyfin.Plugin.WatchSync-jf10.zip` \u2014 .NET 9, for Jellyfin **10.11.9+**\n  - `Jellyfin.Plugin.WatchSync-jf12.zip` \u2014 .NET 10, for Jellyfin **12**\n- The plugin catalogue lists both, and **Jellyfin installs the right one automatically** \u2014 nothing to choose.\n\nNo functional changes to watch-state syncing; this is a compatibility release.",
+        "checksum": "54623816ff2a6711e4bd59795b7c16b1",
+        "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.2.0.0/Jellyfin.Plugin.WatchSync-jf10.zip",
+        "targetAbi": "10.11.9.0",
+        "timestamp": "2026-09-10T21:56:46Z",
+        "version": "1.2.0.0"
+      },
+      {
+        "changelog": "## v1.1.0.0\n\n### Fixed\n- **Rewatching no longer unwatches the episode for the whole group** \u2014 starting a rewatch and stopping before the end fires a playback event with the episode marked unwatched, which was being propagated to everyone. Playback-driven unwatch is now ignored; the **only** way to unwatch an episode for the group is a manual toggle (the checkmark) by one of the users.\n\n### Changed\n- **Scrobbling now fires for every linked user** \u2014 when two linked users finish an episode together, scrobbler plugins (Trakt, Simkl, \u2026) previously only scrobbled for the user who was actively playing. Synced watch states are now written with the original playback/toggle reason instead of a silent import, so the scrobbler plugins fire for the other user(s) too.",
         "checksum": "191147fb3cdc7d0100b7de4fb5dd8919",
         "sourceUrl": "https://github.com/NMe84/jellyfin-watch-state-sync-plugin/releases/download/v1.1.0.0/Jellyfin.Plugin.WatchSync.zip",
         "targetAbi": "10.11.9.0",
