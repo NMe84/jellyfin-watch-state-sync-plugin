@@ -24,8 +24,8 @@ This plugin allows you to connect two or more users together for specific shows.
 
 | Requirement | Version |
 |---|---|
-| Jellyfin Server | **10.11.9 or newer** |
-| .NET SDK (build only) | 9.0+ |
+| Jellyfin Server | **10.11.9+** or **Jellyfin 12** — one release ships builds for both |
+| .NET SDK (build only) | 9.0 (Jellyfin 10.x) / 10.0 (Jellyfin 12) |
 | [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) | any (optional, for the sync button) |
 
 ---
@@ -135,7 +135,7 @@ which requires any authenticated user (used by the sync button script).
 
 ## Notes on Jellyfin package versions
 
-The project compiles against **Jellyfin 10.11.10** packages and requires **10.11.9 or newer** at runtime (`GetUsers()` was introduced in 10.11.9 as part of the EF Core refactor). If you're on a different version:
+The project compiles against **Jellyfin 10.11.10** packages (net9.0) for Jellyfin 10.x and **Jellyfin 12.0.0** packages (net10.0) for Jellyfin 12, and requires **10.11.9 or newer** at runtime on the 10.x line (`GetUsers()` was introduced in 10.11.9 as part of the EF Core refactor). If you're on a different version:
 
 1. Open `Jellyfin.Plugin.WatchSync.csproj`.
 2. Update the `Version` attribute on both `Jellyfin.Controller` and `Jellyfin.Model` package references.

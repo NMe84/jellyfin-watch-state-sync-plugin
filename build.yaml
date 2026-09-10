@@ -1,7 +1,11 @@
 ﻿---
 name: "Watch State Sync"
 guid: "3d3a1d5a-8f15-4c1c-8da3-5f7e2b1a9c6d"
-version: "1.1.0.0"
+version: "1.2.0.0"
+# Released for both Jellyfin generations from a single tag:
+#   Jellyfin 10.x -> net9.0,  targetAbi 10.11.9.0  (asset *-jf10.zip)
+#   Jellyfin 12   -> net10.0, targetAbi 12.0.0.0   (asset *-jf12.zip)
+# The manifest lists one entry per ABI; the fields below describe the 10.x build.
 targetAbi: "10.11.9.0"
 framework: "net9.0"
 description: "Synchronize watch states between connected users for linked TV shows"
