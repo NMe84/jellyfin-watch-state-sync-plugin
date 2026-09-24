@@ -219,6 +219,12 @@ public class WatchSyncService : IHostedService, IDisposable
             _propagating = false;
         }
 
+        if (e.UserData.Played && e.Item is Episode episode)
+        {
+            var source = _userManager.GetUserById(e.UserId)?.Username ?? e.UserId.ToString();
+            SyncNotices.Add(targetUserId, source, episode);
+        }
+
         _logger.LogInformation(
             "WatchSync: {Item} → {State} for '{TargetUser}' (mirrored from user {SourceUserId})",
             e.Item.Name,

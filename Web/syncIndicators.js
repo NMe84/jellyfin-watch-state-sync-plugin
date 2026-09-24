@@ -5,6 +5,8 @@
 //    episode card the current user is synced on.
 //  • Detail pages: a "Synced with …" line under the title, plus a link button
 //    in the action bar that opens a popup listing the synced users.
+//  • Catch-up banner: once after login / page load, lists episodes that other
+//    users' watching marked as watched for you; dismissing it clears them.
 //
 // Data: one GET /WatchSync/me per minute (series the user is synced on).
 // Season/episode cards are mapped to their series from the card's own series
@@ -15,6 +17,7 @@
   var BTN_ID   = 'ws-sync-btn';
   var LINE_ID  = 'ws-sync-line';
   var MODAL_ID = 'ws-sync-modal';
+  var BANNER_ID = 'ws-sync-banner';
   var BADGE    = 'ws-sync-badge';
   var TTL_MS   = 60000;
 
@@ -25,6 +28,7 @@
   var seriesOf = {};    // itemId -> seriesId ('' = not part of a series)
   var pending  = {};    // itemIds with a lookup in flight
   var scheduled = false;
+  var noticesFor = '';  // user id whose notices were already fetched
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -276,11 +280,90 @@
     }
   }
 
+  // ── Catch-up banner ────────────────────────────────────────────────────────
+
+  function episodeText(n) {
+    var eps = n.episodes;
+    var what = n.count === 1 ? '1 episode' : n.count + ' episodes';
+    var range = eps.length === 1 ? eps[0]
+      : eps.length <= 3 ? eps.join(', ')
+      : eps[0] + ' … ' + eps[eps.length - 1];
+    return n.fromUser + ' watched ' + what + ' of ' + n.seriesName + ' (' + range + ')';
+  }
+
+  function showBanner(notices) {
+    var banner = document.createElement('div');
+    banner.id = BANNER_ID;
+    banner.setAttribute('role', 'status');
+    banner.style.cssText = 'position:fixed;left:50%;bottom:1.5em;transform:translateX(-50%);z-index:9998;' +
+      'max-width:min(40em,calc(100% - 2em));padding:1em 1.2em;border-radius:.4em;' +
+      'background:var(--color-card-background,#202020);color:#fff;box-shadow:0 .2em 1em rgba(0,0,0,.6);' +
+      'border-left:.3em solid var(--mui-palette-primary-main,#00a4dc);display:flex;gap:1em;align-items:flex-start;';
+
+    var body = document.createElement('div');
+    body.style.flex = '1';
+    var title = document.createElement('div');
+    title.style.cssText = 'font-weight:600;margin-bottom:.4em;display:flex;align-items:center;gap:.4em;';
+    var icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = 'link';
+    title.appendChild(icon);
+    title.appendChild(document.createTextNode('Marked as watched for you'));
+    body.appendChild(title);
+    notices.forEach(function (n) {
+      var line = document.createElement('div');
+      line.style.cssText = 'line-height:1.5;opacity:.9;';
+      line.textContent = episodeText(n);
+      body.appendChild(line);
+    });
+
+    var ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'raised button-submit emby-button';
+    ok.style.margin = '0';
+    ok.textContent = 'OK';
+
+    function close() {
+      document.removeEventListener('keydown', onKey, true);
+      banner.remove();
+      fetch(window.ApiClient.serverAddress() + '/WatchSync/me/notices', {
+        method: 'DELETE',
+        headers: { 'X-Emby-Token': window.ApiClient.accessToken() }
+      }).catch(function () {});
+    }
+    function onKey(e) {
+      if (document.activeElement === ok &&
+          (e.key === 'Escape' || e.key === 'GoBack' || e.keyCode === 27 || e.keyCode === 461)) {
+        e.stopPropagation();
+        e.preventDefault();
+        close();
+      }
+    }
+    document.addEventListener('keydown', onKey, true);
+    ok.addEventListener('click', close);
+
+    banner.appendChild(body);
+    banner.appendChild(ok);
+    document.body.appendChild(banner);
+  }
+
+  function checkNotices(userId) {
+    if (noticesFor === userId) return;
+    noticesFor = userId;
+    var old = document.getElementById(BANNER_ID);
+    if (old) old.remove();
+    api('/WatchSync/me/notices').then(function (notices) {
+      if (notices.length && currentUserId() === userId) showBanner(notices);
+    }).catch(function () {});
+  }
+
   // ── Driver ─────────────────────────────────────────────────────────────────
 
   function run() {
     scheduled = false;
     if (!currentUserId()) return;
+    checkNotices(currentUserId());
     if (currentUserId() !== syncedFor || Date.now() - loadedAt >= TTL_MS) refreshSynced();
     if (!synced || currentUserId() !== syncedFor) return;
     scanCards();

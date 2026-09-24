@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.WatchSync.Models;
+using Jellyfin.Plugin.WatchSync.Services;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -275,6 +276,38 @@ public class WatchSyncController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Episodes other users' watching marked as watched for the calling user since
+    /// the notices were last cleared (shown once by the web UI script).
+    /// </summary>
+    [HttpGet("me/notices")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<object>>> GetMyNotices()
+    {
+        var userId = (await _authContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).UserId;
+
+        return Ok(SyncNotices.Get(userId).Select(n => new
+        {
+            seriesId   = n.SeriesId.ToString("N"),
+            seriesName = n.SeriesName,
+            fromUser   = n.FromUser,
+            count      = n.Count,
+            episodes   = n.Episodes
+        }));
+    }
+
+    /// <summary>Clears the calling user's notices (after they were shown).</summary>
+    [HttpDelete("me/notices")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> ClearMyNotices()
+    {
+        var userId = (await _authContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).UserId;
+        SyncNotices.Clear(userId);
+        return NoContent();
+    }
+
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
@@ -360,7 +393,8 @@ public class WatchSyncController : ControllerBase
                 continue;
 
             // The first user who watched it is the source for the timestamp.
-            var reference = _userDataManager.GetUserData(watchedBy.First(w => w.Ids.Contains(id)).User, episode);
+            var referenceUser = watchedBy.First(w => w.Ids.Contains(id)).User;
+            var reference = _userDataManager.GetUserData(referenceUser, episode);
 
             foreach (var (user, ids) in watchedBy.Where(w => !w.Ids.Contains(id)))
             {
@@ -375,6 +409,7 @@ public class WatchSyncController : ControllerBase
                     data,
                     UserDataSaveReason.Import,
                     CancellationToken.None);
+                SyncNotices.Add(user.Id, referenceUser.Username, episode);
             }
         }
     }

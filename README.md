@@ -93,6 +93,7 @@ When the [Jellyfin JavaScript Injector](https://github.com/n00bcodr/Jellyfin-Jav
 
 - **Cards** – a link badge next to the other card indicators (top right) on every series, season and episode card you are synced on (home rows, library grids, search, detail pages).
 - **Detail pages** – a "🔗 Synced with Alice and Bob" line under the title, and a link button in the action bar that opens the same information as a popup.
+- **Catch-up banner** – when you next open Jellyfin, a banner lists what others' watching marked as watched for you ("Alice watched 3 episodes of Chernobyl (S1E2 … S1E4)"). Dismissing it clears the list. Pending notices are stored in the plugin's data folder (`notices.json`).
 
 The script fetches `GET /WatchSync/me` once a minute and maps season/episode cards to their series without per-card requests.
 
@@ -127,7 +128,7 @@ double-writes if Jellyfin somehow fires multiple events for the same item concur
 
 ## REST API
 
-All endpoints require admin authentication (`RequiresElevation`) except `/me`,
+All endpoints require admin authentication (`RequiresElevation`) except `/me` and `/me/notices`,
 which requires any authenticated user (used by the sync indicator script).
 
 | Method | Path | Description |
@@ -140,6 +141,8 @@ which requires any authenticated user (used by the sync indicator script).
 | GET | `/WatchSync/users` | List all users |
 | GET | `/WatchSync/series` | List all TV series |
 | GET | `/WatchSync/me` | Series the calling user is synced on, with the other users' names |
+| GET | `/WatchSync/me/notices` | Episodes marked as watched for the calling user by sync since the last dismissal |
+| DELETE | `/WatchSync/me/notices` | Clear the calling user's notices |
 
 ---
 
