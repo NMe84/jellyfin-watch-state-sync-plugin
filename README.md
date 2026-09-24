@@ -101,14 +101,19 @@ The integration is fully opt-in: if the injector is not installed, Watch State S
 
 ```
 UserDataSaved event fires
-  → reason is PlaybackFinished or TogglePlayed
+  → reason is PlaybackFinished, TogglePlayed or UpdateUserData
+    (only a manual toggle may propagate "unwatched")
+  → the event was not caused by the plugin's own write
   → item is an Episode
   → episode's series is listed in a connection where the triggering user appears
   → for each other user in the sync group:
       read their current UserData for that episode
-      if Played state differs → write new state with reason=Import
-      (Import reason is ignored by this handler → no loop)
+      if Played state differs → write the new state with the source's save reason
+      (so scrobbler plugins see it for every user)
 ```
+
+Changes do not chain across groups: with groups Alice & Bob and Bob & Carol on the
+same show, Alice's change reaches Bob but not Carol.
 
 Reentrancy is additionally guarded by an in-flight `HashSet<itemId:userId>` that prevents
 double-writes if Jellyfin somehow fires multiple events for the same item concurrently.

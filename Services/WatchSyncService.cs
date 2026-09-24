@@ -27,8 +27,9 @@ namespace Jellyfin.Plugin.WatchSync.Services;
 /// Propagated writes reuse the SOURCE save reason (PlaybackFinished / TogglePlayed)
 /// rather than Import, so scrobbler plugins (Trakt, Simkl, …) that listen for
 /// UserDataSaved fire for every user in the group, not just the one who was
-/// actively playing.  Re-entrancy is bounded by the equality check in ApplySync
-/// (once the target already matches the source state, no further write occurs);
+/// actively playing.  The UserDataSaved events raised by our own writes are
+/// ignored (_propagating), so a change only reaches the groups of the user who
+/// made it: with groups {A,B} and {B,C}, A's change reaches B but not C.
 /// _syncInProgress additionally guards against concurrent fan-out.
 /// </summary>
 public class WatchSyncService : IHostedService, IDisposable
@@ -39,6 +40,11 @@ public class WatchSyncService : IHostedService, IDisposable
 
     private readonly HashSet<string> _syncInProgress = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _syncLock = new();
+
+    // Set while this thread saves a propagated change; SaveUserData raises
+    // UserDataSaved synchronously, and that nested event must not fan out again.
+    [ThreadStatic]
+    private static bool _propagating;
     private bool _disposed;
 
     public WatchSyncService(
@@ -83,6 +89,9 @@ public class WatchSyncService : IHostedService, IDisposable
         // playback-driven unwatch entirely.  UpdateUserData carries the whole
         // user-data object (favourites, ratings, …), so only its watched state is trusted.
         if (e.SaveReason != UserDataSaveReason.TogglePlayed && !e.UserData.Played)
+            return;
+
+        if (_propagating)
             return;
 
         // An exception here would escape into Jellyfin's caller (e.g. abort a
@@ -194,15 +203,21 @@ public class WatchSyncService : IHostedService, IDisposable
 
         // Reuse the source reason (PlaybackFinished / TogglePlayed) rather than
         // Import so scrobbler plugins listening for UserDataSaved fire for this
-        // user too.  The equality check above stops the resulting re-entrant
-        // UserDataSaved from looping: once the target matches the source state,
-        // the next pass returns before writing.
-        _userDataManager.SaveUserData(
-            targetUser,
-            e.Item,
-            targetData,
-            e.SaveReason,
-            CancellationToken.None);
+        // user too.
+        _propagating = true;
+        try
+        {
+            _userDataManager.SaveUserData(
+                targetUser,
+                e.Item,
+                targetData,
+                e.SaveReason,
+                CancellationToken.None);
+        }
+        finally
+        {
+            _propagating = false;
+        }
 
         _logger.LogInformation(
             "WatchSync: {Item} → {State} for '{TargetUser}' (mirrored from user {SourceUserId})",
