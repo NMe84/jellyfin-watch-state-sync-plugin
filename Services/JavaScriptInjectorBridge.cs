@@ -19,14 +19,12 @@ internal static class JavaScriptInjectorBridge
     private const string InjectorAssemblyName = "Jellyfin.Plugin.JavaScriptInjector";
     private const string InterfaceTypeName    = "Jellyfin.Plugin.JavaScriptInjector.PluginInterface";
 
-    // Cached after the first resolution attempt.
-    private static Type?  _type;
-    private static bool   _resolved;
+    // Cached once found; a miss is retried (the injector may load after this plugin).
+    private static Type? _type;
 
     private static Type? ResolveType()
     {
-        if (_resolved) return _type;
-        _resolved = true;
+        if (_type is not null) return _type;
 
         // The injector lives in a separate AssemblyLoadContext; search all contexts.
         foreach (var ctx in AssemblyLoadContext.All)
