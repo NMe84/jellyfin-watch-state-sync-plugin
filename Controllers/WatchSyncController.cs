@@ -171,29 +171,21 @@ public class WatchSyncController : ControllerBase
                 continue;
             }
 
-            // GetUserDataBatch was removed in 10.11.x; use two filtered queries instead.
-            // IsMissing = false excludes virtual/stub episodes that Jellyfin adds for
-            // expected-but-not-yet-downloaded content (e.g. an upcoming season), which
-            // would otherwise inflate the total count.
-            var total = _libraryManager.GetItemList(new InternalItemsQuery
+            // COUNT queries: nothing is loaded. IsMissing = false excludes virtual/stub
+            // episodes that Jellyfin adds for expected-but-not-yet-downloaded content
+            // (e.g. an upcoming season), which would otherwise inflate the total.
+            var query = new InternalItemsQuery
             {
                 IncludeItemTypes = new[] { BaseItemKind.Episode },
                 ParentId         = connection.SeriesId,
                 Recursive        = true,
                 IsMissing        = false
-            }).Count;
+            };
+            var total = _libraryManager.GetCount(query);
 
-            var watched = total > 0
-                ? _libraryManager.GetItemList(new InternalItemsQuery
-                  {
-                      IncludeItemTypes = new[] { BaseItemKind.Episode },
-                      ParentId         = connection.SeriesId,
-                      Recursive        = true,
-                      IsPlayed         = true,
-                      IsMissing        = false,
-                      User             = user
-                  }).Count
-                : 0;
+            query.IsPlayed = true;
+            query.User     = user;
+            var watched = total > 0 ? _libraryManager.GetCount(query) : 0;
 
             result.Add(new { connectionId = connection.Id.ToString(), watched, total });
         }
@@ -339,33 +331,43 @@ public class WatchSyncController : ControllerBase
         if (users.Count < 2)
             return;
 
-        var episodes = _libraryManager
-            .GetItemList(new InternalItemsQuery { ParentId = connection.SeriesId, Recursive = true })
-            .OfType<Episode>()
+        // One id query per user instead of a user-data lookup per user × episode;
+        // user data is only touched for episodes that actually get written.
+        var watchedBy = users
+            .Select(u => (User: u!, Ids: _libraryManager.GetItemIds(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Episode },
+                // GetItemIds, unlike GetItemList/GetCount, does not turn a recursive
+                // ParentId into an ancestor filter, so filter by ancestor directly.
+                AncestorIds      = new[] { connection.SeriesId },
+                Recursive        = true,
+                IsMissing        = false,
+                IsPlayed         = true,
+                User             = u
+            }).ToHashSet()))
             .ToList();
 
-        foreach (var episode in episodes)
-        {
-            var states = users
-                .Select(u => new { User = u!, Data = _userDataManager.GetUserData(u!, episode) })
-                .ToList();
+        var watchedByAnyone = watchedBy.SelectMany(w => w.Ids).ToHashSet();
 
-            if (!states.Any(s => s.Data.Played))
+        foreach (var id in watchedByAnyone)
+        {
+            if (_libraryManager.GetItemById(id) is not Episode episode)
                 continue;
 
-            // Use the first watched entry as the source for timestamps.
-            var reference = states.First(s => s.Data.Played);
+            // The first user who watched it is the source for the timestamp.
+            var reference = _userDataManager.GetUserData(watchedBy.First(w => w.Ids.Contains(id)).User, episode);
 
-            foreach (var s in states.Where(s => !s.Data.Played))
+            foreach (var (user, ids) in watchedBy.Where(w => !w.Ids.Contains(id)))
             {
-                s.Data.Played = true;
-                s.Data.PlaybackPositionTicks = 0;
-                s.Data.PlayCount = Math.Max(s.Data.PlayCount, 1);
-                s.Data.LastPlayedDate ??= reference.Data.LastPlayedDate;
+                var data = _userDataManager.GetUserData(user, episode);
+                data.Played = true;
+                data.PlaybackPositionTicks = 0;
+                data.PlayCount = Math.Max(data.PlayCount, 1);
+                data.LastPlayedDate ??= reference.LastPlayedDate;
                 _userDataManager.SaveUserData(
-                    s.User,
+                    user,
                     episode,
-                    s.Data,
+                    data,
                     UserDataSaveReason.Import,
                     CancellationToken.None);
             }
