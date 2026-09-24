@@ -59,7 +59,7 @@ public class WatchSyncController : ControllerBase
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<IEnumerable<object>> GetConnections()
-        => Ok(Config.Connections.Select(ToDto));
+        => Ok(Config.Connections.ToArray().Select(ToDto));
 
     /// <summary>
     /// Creates a new sync group. Supply a <see cref="UserConnection"/> with at least two
@@ -161,14 +161,10 @@ public class WatchSyncController : ControllerBase
 
         foreach (var connection in Config.Connections)
         {
-            var firstUser = connection.Users.FirstOrDefault();
-            if (firstUser is null)
-            {
-                result.Add(new { connectionId = connection.Id.ToString(), watched = 0, total = 0 });
-                continue;
-            }
-
-            var user = _userManager.GetUserById(firstUser.Id);
+            // First member that still exists (a deleted user stays in the config).
+            var user = connection.Users
+                .Select(u => _userManager.GetUserById(u.Id))
+                .FirstOrDefault(u => u is not null);
             if (user is null)
             {
                 result.Add(new { connectionId = connection.Id.ToString(), watched = 0, total = 0 });
@@ -286,9 +282,9 @@ public class WatchSyncController : ControllerBase
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    private static string? ValidateConnection(UserConnection connection)
+    private string? ValidateConnection(UserConnection? connection)
     {
-        if (connection.Users.Count < 2)
+        if (connection?.Users is null || connection.Users.Count < 2)
             return "A sync group must contain at least two users.";
 
         var ids = connection.Users.Select(u => u.Id).ToList();
@@ -296,7 +292,20 @@ public class WatchSyncController : ControllerBase
         if (ids.Distinct().Count() != ids.Count)
             return "A sync group cannot contain duplicate users.";
 
+        if (ids.Any(id => _userManager.GetUserById(id) is null))
+            return "Unknown user.";
+
+        if (!IsSeries(connection.SeriesId))
+            return "Unknown TV show.";
+
         return null;
+    }
+
+    private bool IsSeries(Guid id)
+    {
+        // GetItemById throws for ids whose stored type cannot be deserialised.
+        try { return _libraryManager.GetItemById(id) is Series; }
+        catch (InvalidOperationException) { return false; }
     }
 
     /// <summary>Sorts users by ID so identical groups always have the same canonical order.</summary>
@@ -350,6 +359,7 @@ public class WatchSyncController : ControllerBase
             foreach (var s in states.Where(s => !s.Data.Played))
             {
                 s.Data.Played = true;
+                s.Data.PlaybackPositionTicks = 0;
                 s.Data.PlayCount = Math.Max(s.Data.PlayCount, 1);
                 s.Data.LastPlayedDate ??= reference.Data.LastPlayedDate;
                 _userDataManager.SaveUserData(

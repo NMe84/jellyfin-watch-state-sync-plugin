@@ -67,8 +67,11 @@ public class WatchSyncService : IHostedService, IDisposable
     private void OnUserDataSaved(object? sender, UserDataSaveEventArgs e)
     {
         // Only act on explicit played-state changes.  Import is our own write reason.
+        // UpdateUserData is POST /UserItems/{id}/UserData, used by some clients and
+        // offline-sync apps to set Played.
         if (e.SaveReason != UserDataSaveReason.PlaybackFinished &&
-            e.SaveReason != UserDataSaveReason.TogglePlayed)
+            e.SaveReason != UserDataSaveReason.TogglePlayed &&
+            e.SaveReason != UserDataSaveReason.UpdateUserData)
         {
             return;
         }
@@ -77,9 +80,25 @@ public class WatchSyncService : IHostedService, IDisposable
         // with Played=false when the viewer stops before the end.  That must never
         // unwatch the episode for the rest of the group — only a manual toggle (the
         // checkmark, i.e. TogglePlayed) is allowed to unwatch.  So ignore any
-        // playback-driven unwatch entirely.
-        if (e.SaveReason == UserDataSaveReason.PlaybackFinished && !e.UserData.Played)
+        // playback-driven unwatch entirely.  UpdateUserData carries the whole
+        // user-data object (favourites, ratings, …), so only its watched state is trusted.
+        if (e.SaveReason != UserDataSaveReason.TogglePlayed && !e.UserData.Played)
             return;
+
+        // An exception here would escape into Jellyfin's caller (e.g. abort a
+        // season-wide "mark played" halfway), so contain everything.
+        try
+        {
+            SyncToGroup(e);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WatchSync: error handling watch-state change for {Item}", e.Item?.Name);
+        }
+    }
+
+    private void SyncToGroup(UserDataSaveEventArgs e)
+    {
 
         if (e.Item is not Episode episode)
             return;
@@ -93,7 +112,9 @@ public class WatchSyncService : IHostedService, IDisposable
             return;
 
         // Find every sync group that includes the triggering user and covers this series.
+        // ToArray() snapshots the list first: the admin API may modify it concurrently.
         var connections = config.Connections
+            .ToArray()
             .Where(c =>
                 c.SeriesId == seriesId &&
                 c.Users.Any(u => u.Id == e.UserId))
@@ -156,11 +177,19 @@ public class WatchSyncService : IHostedService, IDisposable
             return;
 
         targetData.Played = e.UserData.Played;
+        // Mirror BaseItem.MarkPlayed / MarkUnplayed: a stale resume position would keep
+        // the episode in "Continue Watching" with a partial progress bar.
+        targetData.PlaybackPositionTicks = 0;
 
         if (e.UserData.Played)
         {
             targetData.PlayCount = Math.Max(targetData.PlayCount, 1);
             targetData.LastPlayedDate ??= e.UserData.LastPlayedDate;
+        }
+        else
+        {
+            targetData.PlayCount = 0;
+            targetData.LastPlayedDate = null;
         }
 
         // Reuse the source reason (PlaybackFinished / TogglePlayed) rather than

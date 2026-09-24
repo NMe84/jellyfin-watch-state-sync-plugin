@@ -532,7 +532,7 @@
             if (action === 'delete') {
                 confirm(
                     'Remove connection',
-                    'Remove the connection for <strong>' + btn.dataset.series + '</strong> from the group <strong>' + btn.dataset.label + '</strong>?',
+                    'Remove the connection for <strong>' + esc(btn.dataset.series) + '</strong> from the group <strong>' + esc(btn.dataset.label) + '</strong>?',
                     confirmModal, dom.confirmTitle, dom.confirmMessage
                 ).then(function (ok) {
                     if (!ok) return;
