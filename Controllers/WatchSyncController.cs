@@ -35,6 +35,9 @@ public class WatchSyncController : ControllerBase
 
     private static PluginConfiguration Config => Plugin.Instance!.Configuration;
 
+    // ponytail: one global lock for check-then-add; writes are rare admin actions.
+    private static readonly object ConfigLock = new();
+
     // Jellyfin 10.11.x uses System.Text.Json (not Newtonsoft) for API responses,
     // which ignores [JsonProperty] attributes and defaults to PascalCase.
     // We project to anonymous types with explicit lowercase names so the output
@@ -76,14 +79,17 @@ public class WatchSyncController : ControllerBase
 
         NormalizeUsers(connection);
 
-        if (IsDuplicate(connection, excludeId: null))
-            return Conflict("A connection with this exact user group and series already exists.");
+        lock (ConfigLock)
+        {
+            if (IsDuplicate(connection, excludeId: null))
+                return Conflict("A connection with this exact user group and series already exists.");
 
-        connection.Id = Guid.NewGuid();
-        EnrichDisplayNames(connection);
+            connection.Id = Guid.NewGuid();
+            EnrichDisplayNames(connection);
 
-        Config.Connections.Add(connection);
-        Plugin.Instance!.SaveConfiguration();
+            Config.Connections.Add(connection);
+            Plugin.Instance!.SaveConfiguration();
+        }
 
         MergeInitialWatchStates(connection);
 
