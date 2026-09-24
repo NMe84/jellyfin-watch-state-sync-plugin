@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.WatchSync.Models;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Net;
 using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -22,15 +24,18 @@ public class WatchSyncController : ControllerBase
     private readonly IUserManager _userManager;
     private readonly ILibraryManager _libraryManager;
     private readonly IUserDataManager _userDataManager;
+    private readonly IAuthorizationContext _authContext;
 
     public WatchSyncController(
         IUserManager userManager,
         ILibraryManager libraryManager,
-        IUserDataManager userDataManager)
+        IUserDataManager userDataManager,
+        IAuthorizationContext authContext)
     {
         _userManager = userManager;
         _libraryManager = libraryManager;
         _userDataManager = userDataManager;
+        _authContext = authContext;
     }
 
     private static PluginConfiguration Config => Plugin.Instance!.Configuration;
@@ -239,38 +244,35 @@ public class WatchSyncController : ControllerBase
     }
 
     // -------------------------------------------------------------------------
-    // Called by the chain-icon client-side script (accessible to all users)
+    // Called by the client-side indicator script (accessible to all users)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Returns all users that are synced with <paramref name="userId"/> for the series
-    /// that contains <paramref name="itemId"/> (series, season, or episode).
+    /// Returns every series the calling user is synced on, with the names of the
+    /// other users in those groups. The user is taken from the access token.
     /// </summary>
-    [HttpGet("connections/item/{itemId:guid}/user/{userId:guid}")]
+    [HttpGet("me")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<IEnumerable<object>> GetConnectionsForItem(Guid itemId, Guid userId)
+    public async Task<ActionResult<IEnumerable<object>>> GetMySyncedSeries()
     {
-        var item = _libraryManager.GetItemById(itemId);
-        if (item is null)
-            return Ok(Array.Empty<object>());
+        var userId = (await _authContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).UserId;
 
-        var seriesId = item switch
-        {
-            Episode ep     => ep.SeriesId,
-            Season season  => season.SeriesId,
-            Series series  => series.Id,
-            _              => item.Id
-        };
-
-        var connected = Config.Connections
-            .Where(c => c.SeriesId == seriesId && c.Users.Any(u => u.Id == userId))
-            .SelectMany(c => c.Users.Where(u => u.Id != userId))
-            .GroupBy(u => u.Id)
-            .Select(g => new { userId = g.Key, userName = g.First().Name })
+        var result = Config.Connections
+            .Where(c => c.Users.Any(u => u.Id == userId))
+            .GroupBy(c => c.SeriesId)
+            .Select(g => new
+            {
+                seriesId = g.Key.ToString("N"),
+                users    = g.SelectMany(c => c.Users)
+                            .Where(u => u.Id != userId)
+                            .Select(u => u.Name)
+                            .Distinct()
+                            .ToList()
+            })
             .ToList();
 
-        return Ok(connected);
+        return Ok(result);
     }
 
     // -------------------------------------------------------------------------

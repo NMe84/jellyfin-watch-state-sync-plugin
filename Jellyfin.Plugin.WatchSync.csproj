@@ -38,6 +38,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Configuration\configPage.html" />
+    <EmbeddedResource Include="Web\syncIndicators.js" />
   </ItemGroup>
 
 </Project>
