@@ -42,11 +42,14 @@ public class WatchSyncController : ControllerBase
     // which ignores [JsonProperty] attributes and defaults to PascalCase.
     // We project to anonymous types with explicit lowercase names so the output
     // is always what the JavaScript expects, regardless of serialiser config.
-    private static object ToDto(UserConnection c) => new
+    private object ToDto(UserConnection c) => new
     {
         id         = c.Id.ToString(),
         seriesId   = c.SeriesId.ToString(),
         seriesName = c.SeriesName,
+        // The show is gone from the library (removed, or re-added under a new id):
+        // episodes no longer match, so nothing syncs.
+        missing    = !IsSeries(c.SeriesId),
         users      = c.Users.Select(u => new { id = u.Id.ToString(), name = u.Name }).ToList()
     };
 

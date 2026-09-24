@@ -187,12 +187,20 @@
                 html += '<div data-cid="' + c.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);">';
                 // Left column: show link + progress bar
                 html += '<div style="flex:1;min-width:0;padding-right:14px;">';
-                html += '<a class="ws-link" href="#/details?id=' + esc(c.seriesId) + '" title="View show">' + esc(c.seriesName) + '</a>';
-                html += '<div style="margin-top:6px;">';
-                html += '<div style="background:rgba(255,255,255,.12);border-radius:2px;height:4px;overflow:hidden;">' +
-                        '<div class="ws-bar" style="background:#00a4dc;height:100%;width:0;transition:width .4s ease;"></div></div>';
-                html += '<span class="ws-text" style="font-size:11px;color:#888;display:block;margin-top:3px;">…</span>';
-                html += '</div></div>';
+                if (c.missing) {
+                    html += '<span>' + esc(c.seriesName) + '</span>';
+                    html += '<div style="margin-top:6px;font-size:12px;color:#f44336;">' +
+                            '<i class="material-icons" style="font-size:14px;vertical-align:-2px;">warning</i> ' +
+                            'Show not found in the library, so nothing is synced. Edit the connection to pick the show again.</div>';
+                    html += '</div>';
+                } else {
+                    html += '<a class="ws-link" href="#/details?id=' + esc(c.seriesId) + '" title="View show">' + esc(c.seriesName) + '</a>';
+                    html += '<div style="margin-top:6px;">';
+                    html += '<div style="background:rgba(255,255,255,.12);border-radius:2px;height:4px;overflow:hidden;">' +
+                            '<div class="ws-bar" style="background:#00a4dc;height:100%;width:0;transition:width .4s ease;"></div></div>';
+                    html += '<span class="ws-text" style="font-size:11px;color:#888;display:block;margin-top:3px;">…</span>';
+                    html += '</div></div>';
+                }
                 html += '<span style="display:flex;gap:6px;">';
                 html += '<button type="button" class="raised emby-button" style="padding:4px 8px;" ' +
                         'data-action="edit" data-id="' + c.id + '" title="Edit">' +
