@@ -86,6 +86,7 @@
     var allSeries      = [];
     var editingId      = null;
     var confirmResolver = null;
+    var initToken      = String(Math.random());
 
     // ── Auth helpers ──────────────────────────────────────────────────────────
     function getBase() {
@@ -450,6 +451,14 @@
     // ── Page initialisation (runs on every pageshow for this page) ────────────
     document.addEventListener('pageshow', function (e) {
         if (e.target.id !== 'WatchSyncConfigPage') return;
+        // pageshow fires on every visit; binding again would send each click N times.
+        if (e.target.dataset.wsInit) {
+            if (e.target.dataset.wsInit === initToken) {
+                loadConnections(document.getElementById('connectionsList'), document.getElementById('wsBanner'));
+            }
+            return;
+        }
+        e.target.dataset.wsInit = initToken;
 
         // Capture DOM refs
         var listEl       = document.getElementById('connectionsList');
@@ -523,7 +532,7 @@
             if (action === 'delete') {
                 confirm(
                     'Remove connection',
-                    'Remove the connection for <strong>' + btn.dataset.series + '</strong> from the group <strong>' + btn.dataset.label + '</strong>?',
+                    'Remove the connection for <strong>' + esc(btn.dataset.series) + '</strong> from the group <strong>' + esc(btn.dataset.label) + '</strong>?',
                     confirmModal, dom.confirmTitle, dom.confirmMessage
                 ).then(function (ok) {
                     if (!ok) return;
