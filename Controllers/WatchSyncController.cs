@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.WatchSync.Models;
+using Jellyfin.Plugin.WatchSync.Services;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Net;
 using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -22,28 +25,37 @@ public class WatchSyncController : ControllerBase
     private readonly IUserManager _userManager;
     private readonly ILibraryManager _libraryManager;
     private readonly IUserDataManager _userDataManager;
+    private readonly IAuthorizationContext _authContext;
 
     public WatchSyncController(
         IUserManager userManager,
         ILibraryManager libraryManager,
-        IUserDataManager userDataManager)
+        IUserDataManager userDataManager,
+        IAuthorizationContext authContext)
     {
         _userManager = userManager;
         _libraryManager = libraryManager;
         _userDataManager = userDataManager;
+        _authContext = authContext;
     }
 
     private static PluginConfiguration Config => Plugin.Instance!.Configuration;
+
+    // ponytail: one global lock for check-then-add; writes are rare admin actions.
+    private static readonly object ConfigLock = new();
 
     // Jellyfin 10.11.x uses System.Text.Json (not Newtonsoft) for API responses,
     // which ignores [JsonProperty] attributes and defaults to PascalCase.
     // We project to anonymous types with explicit lowercase names so the output
     // is always what the JavaScript expects, regardless of serialiser config.
-    private static object ToDto(UserConnection c) => new
+    private object ToDto(UserConnection c) => new
     {
         id         = c.Id.ToString(),
         seriesId   = c.SeriesId.ToString(),
         seriesName = c.SeriesName,
+        // The show is gone from the library (removed, or re-added under a new id):
+        // episodes no longer match, so nothing syncs.
+        missing    = !IsSeries(c.SeriesId),
         users      = c.Users.Select(u => new { id = u.Id.ToString(), name = u.Name }).ToList()
     };
 
@@ -56,7 +68,7 @@ public class WatchSyncController : ControllerBase
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<IEnumerable<object>> GetConnections()
-        => Ok(Config.Connections.Select(ToDto));
+        => Ok(Config.Connections.ToArray().Select(ToDto));
 
     /// <summary>
     /// Creates a new sync group. Supply a <see cref="UserConnection"/> with at least two
@@ -76,14 +88,17 @@ public class WatchSyncController : ControllerBase
 
         NormalizeUsers(connection);
 
-        if (IsDuplicate(connection, excludeId: null))
-            return Conflict("A connection with this exact user group and series already exists.");
+        lock (ConfigLock)
+        {
+            if (IsDuplicate(connection, excludeId: null))
+                return Conflict("A connection with this exact user group and series already exists.");
 
-        connection.Id = Guid.NewGuid();
-        EnrichDisplayNames(connection);
+            connection.Id = Guid.NewGuid();
+            EnrichDisplayNames(connection);
 
-        Config.Connections.Add(connection);
-        Plugin.Instance!.SaveConfiguration();
+            Config.Connections.Add(connection);
+            Plugin.Instance!.SaveConfiguration();
+        }
 
         MergeInitialWatchStates(connection);
 
@@ -155,43 +170,31 @@ public class WatchSyncController : ControllerBase
 
         foreach (var connection in Config.Connections)
         {
-            var firstUser = connection.Users.FirstOrDefault();
-            if (firstUser is null)
-            {
-                result.Add(new { connectionId = connection.Id.ToString(), watched = 0, total = 0 });
-                continue;
-            }
-
-            var user = _userManager.GetUserById(firstUser.Id);
+            // First member that still exists (a deleted user stays in the config).
+            var user = connection.Users
+                .Select(u => _userManager.GetUserById(u.Id))
+                .FirstOrDefault(u => u is not null);
             if (user is null)
             {
                 result.Add(new { connectionId = connection.Id.ToString(), watched = 0, total = 0 });
                 continue;
             }
 
-            // GetUserDataBatch was removed in 10.11.x; use two filtered queries instead.
-            // IsMissing = false excludes virtual/stub episodes that Jellyfin adds for
-            // expected-but-not-yet-downloaded content (e.g. an upcoming season), which
-            // would otherwise inflate the total count.
-            var total = _libraryManager.GetItemList(new InternalItemsQuery
+            // COUNT queries: nothing is loaded. IsMissing = false excludes virtual/stub
+            // episodes that Jellyfin adds for expected-but-not-yet-downloaded content
+            // (e.g. an upcoming season), which would otherwise inflate the total.
+            var query = new InternalItemsQuery
             {
                 IncludeItemTypes = new[] { BaseItemKind.Episode },
                 ParentId         = connection.SeriesId,
                 Recursive        = true,
                 IsMissing        = false
-            }).Count;
+            };
+            var total = _libraryManager.GetCount(query);
 
-            var watched = total > 0
-                ? _libraryManager.GetItemList(new InternalItemsQuery
-                  {
-                      IncludeItemTypes = new[] { BaseItemKind.Episode },
-                      ParentId         = connection.SeriesId,
-                      Recursive        = true,
-                      IsPlayed         = true,
-                      IsMissing        = false,
-                      User             = user
-                  }).Count
-                : 0;
+            query.IsPlayed = true;
+            query.User     = user;
+            var watched = total > 0 ? _libraryManager.GetCount(query) : 0;
 
             result.Add(new { connectionId = connection.Id.ToString(), watched, total });
         }
@@ -242,47 +245,76 @@ public class WatchSyncController : ControllerBase
     }
 
     // -------------------------------------------------------------------------
-    // Called by the chain-icon client-side script (accessible to all users)
+    // Called by the client-side indicator script (accessible to all users)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Returns all users that are synced with <paramref name="userId"/> for the series
-    /// that contains <paramref name="itemId"/> (series, season, or episode).
+    /// Returns every series the calling user is synced on, with the names of the
+    /// other users in those groups. The user is taken from the access token.
     /// </summary>
-    [HttpGet("connections/item/{itemId:guid}/user/{userId:guid}")]
+    [HttpGet("me")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<IEnumerable<object>> GetConnectionsForItem(Guid itemId, Guid userId)
+    public async Task<ActionResult<IEnumerable<object>>> GetMySyncedSeries()
     {
-        var item = _libraryManager.GetItemById(itemId);
-        if (item is null)
-            return Ok(Array.Empty<object>());
+        var userId = (await _authContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).UserId;
 
-        var seriesId = item switch
-        {
-            Episode ep     => ep.SeriesId,
-            Season season  => season.SeriesId,
-            Series series  => series.Id,
-            _              => item.Id
-        };
-
-        var connected = Config.Connections
-            .Where(c => c.SeriesId == seriesId && c.Users.Any(u => u.Id == userId))
-            .SelectMany(c => c.Users.Where(u => u.Id != userId))
-            .GroupBy(u => u.Id)
-            .Select(g => new { userId = g.Key, userName = g.First().Name })
+        var result = Config.Connections
+            .Where(c => c.Users.Any(u => u.Id == userId))
+            .GroupBy(c => c.SeriesId)
+            .Select(g => new
+            {
+                seriesId = g.Key.ToString("N"),
+                users    = g.SelectMany(c => c.Users)
+                            .Where(u => u.Id != userId)
+                            .Select(u => u.Name)
+                            .Distinct()
+                            .ToList()
+            })
             .ToList();
 
-        return Ok(connected);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Episodes other users' watching marked as watched for the calling user since
+    /// the notices were last cleared (shown once by the web UI script).
+    /// </summary>
+    [HttpGet("me/notices")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<object>>> GetMyNotices()
+    {
+        var userId = (await _authContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).UserId;
+
+        return Ok(SyncNotices.Get(userId).Select(n => new
+        {
+            seriesId   = n.SeriesId.ToString("N"),
+            seriesName = n.SeriesName,
+            fromUser   = n.FromUser,
+            count      = n.Count,
+            episodes   = n.Episodes
+        }));
+    }
+
+    /// <summary>Clears the calling user's notices (after they were shown).</summary>
+    [HttpDelete("me/notices")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> ClearMyNotices()
+    {
+        var userId = (await _authContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).UserId;
+        SyncNotices.Clear(userId);
+        return NoContent();
     }
 
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    private static string? ValidateConnection(UserConnection connection)
+    private string? ValidateConnection(UserConnection? connection)
     {
-        if (connection.Users.Count < 2)
+        if (connection?.Users is null || connection.Users.Count < 2)
             return "A sync group must contain at least two users.";
 
         var ids = connection.Users.Select(u => u.Id).ToList();
@@ -290,7 +322,20 @@ public class WatchSyncController : ControllerBase
         if (ids.Distinct().Count() != ids.Count)
             return "A sync group cannot contain duplicate users.";
 
+        if (ids.Any(id => _userManager.GetUserById(id) is null))
+            return "Unknown user.";
+
+        if (!IsSeries(connection.SeriesId))
+            return "Unknown TV show.";
+
         return null;
+    }
+
+    private bool IsSeries(Guid id)
+    {
+        // GetItemById throws for ids whose stored type cannot be deserialised.
+        try { return _libraryManager.GetItemById(id) is Series; }
+        catch (InvalidOperationException) { return false; }
     }
 
     /// <summary>Sorts users by ID so identical groups always have the same canonical order.</summary>
@@ -324,34 +369,47 @@ public class WatchSyncController : ControllerBase
         if (users.Count < 2)
             return;
 
-        var episodes = _libraryManager
-            .GetItemList(new InternalItemsQuery { ParentId = connection.SeriesId, Recursive = true })
-            .OfType<Episode>()
+        // One id query per user instead of a user-data lookup per user × episode;
+        // user data is only touched for episodes that actually get written.
+        var watchedBy = users
+            .Select(u => (User: u!, Ids: _libraryManager.GetItemIds(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Episode },
+                // GetItemIds, unlike GetItemList/GetCount, does not turn a recursive
+                // ParentId into an ancestor filter, so filter by ancestor directly.
+                AncestorIds      = new[] { connection.SeriesId },
+                Recursive        = true,
+                IsMissing        = false,
+                IsPlayed         = true,
+                User             = u
+            }).ToHashSet()))
             .ToList();
 
-        foreach (var episode in episodes)
-        {
-            var states = users
-                .Select(u => new { User = u!, Data = _userDataManager.GetUserData(u!, episode) })
-                .ToList();
+        var watchedByAnyone = watchedBy.SelectMany(w => w.Ids).ToHashSet();
 
-            if (!states.Any(s => s.Data.Played))
+        foreach (var id in watchedByAnyone)
+        {
+            if (_libraryManager.GetItemById(id) is not Episode episode)
                 continue;
 
-            // Use the first watched entry as the source for timestamps.
-            var reference = states.First(s => s.Data.Played);
+            // The first user who watched it is the source for the timestamp.
+            var referenceUser = watchedBy.First(w => w.Ids.Contains(id)).User;
+            var reference = _userDataManager.GetUserData(referenceUser, episode);
 
-            foreach (var s in states.Where(s => !s.Data.Played))
+            foreach (var (user, ids) in watchedBy.Where(w => !w.Ids.Contains(id)))
             {
-                s.Data.Played = true;
-                s.Data.PlayCount = Math.Max(s.Data.PlayCount, 1);
-                s.Data.LastPlayedDate ??= reference.Data.LastPlayedDate;
+                var data = _userDataManager.GetUserData(user, episode);
+                data.Played = true;
+                data.PlaybackPositionTicks = 0;
+                data.PlayCount = Math.Max(data.PlayCount, 1);
+                data.LastPlayedDate ??= reference.LastPlayedDate;
                 _userDataManager.SaveUserData(
-                    s.User,
+                    user,
                     episode,
-                    s.Data,
+                    data,
                     UserDataSaveReason.Import,
                     CancellationToken.None);
+                SyncNotices.Add(user.Id, referenceUser.Username, episode);
             }
         }
     }

@@ -16,7 +16,7 @@ This plugin allows you to connect two or more users together for specific shows.
 - **N-way sync** – when any connected user watches or marks an episode as (un)watched, all other users in the group are updated automatically.
 - **Initial merge** – when a connection is first created, episode watch states are merged with a logical OR: any episode already watched by any member is immediately marked as watched for all others.
 - **Persistence** – connections are stored in Jellyfin's standard plugin XML configuration; they survive server restarts.
-- **Sync button** – a link icon button appears in the detail page action bar (alongside Play and Favourite) for any show, season, or episode you are synced on. Clicking it shows which users you are synced with. Requires the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin. **If you don't need this feature, you don't need to install any other plugins to make this one work!**
+- **Sync indicators** – a small link badge on every show, season and episode card you are synced on (home, library, search), plus a "Synced with …" line and a link button on the detail page. Requires the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin. **If you don't need this feature, you don't need to install any other plugins to make this one work!**
 
 ---
 
@@ -87,9 +87,15 @@ Open **Administration → Watch State Sync**. The **+ Add** button at the top op
 
 ---
 
-## Sync button (optional)
+## Sync indicators (optional)
 
-When the [Jellyfin JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin is installed, a link icon (🔗) button is automatically added to the action bar on series, season, and episode detail pages for any item you are synced on. Clicking it shows a popup listing the users you are synced with for that show.
+When the [Jellyfin JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin is installed, the web UI shows which shows you are synced on:
+
+- **Cards** – a link badge next to the other card indicators (top right) on every series, season and episode card you are synced on (home rows, library grids, search, detail pages).
+- **Detail pages** – a "🔗 Synced with Alice and Bob" line under the title, and a link button in the action bar that opens the same information as a popup.
+- **Catch-up banner** – when you next open Jellyfin, a banner lists what others' watching marked as watched for you ("Alice watched 3 episodes of Chernobyl (S1E2 … S1E4)"). Dismissing it clears the list. Pending notices are stored in the plugin's data folder (`notices.json`).
+
+The script fetches `GET /WatchSync/me` once a minute and maps season/episode cards to their series without per-card requests.
 
 Watch State Sync detects the injector at startup via reflection and registers the script automatically — no manual steps needed. The button appears after a browser refresh.
 
@@ -101,14 +107,19 @@ The integration is fully opt-in: if the injector is not installed, Watch State S
 
 ```
 UserDataSaved event fires
-  → reason is PlaybackFinished or TogglePlayed
+  → reason is PlaybackFinished, TogglePlayed or UpdateUserData
+    (only a manual toggle may propagate "unwatched")
+  → the event was not caused by the plugin's own write
   → item is an Episode
   → episode's series is listed in a connection where the triggering user appears
   → for each other user in the sync group:
       read their current UserData for that episode
-      if Played state differs → write new state with reason=Import
-      (Import reason is ignored by this handler → no loop)
+      if Played state differs → write the new state with the source's save reason
+      (so scrobbler plugins see it for every user)
 ```
+
+Changes do not chain across groups: with groups Alice & Bob and Bob & Carol on the
+same show, Alice's change reaches Bob but not Carol.
 
 Reentrancy is additionally guarded by an in-flight `HashSet<itemId:userId>` that prevents
 double-writes if Jellyfin somehow fires multiple events for the same item concurrently.
@@ -117,8 +128,8 @@ double-writes if Jellyfin somehow fires multiple events for the same item concur
 
 ## REST API
 
-All endpoints require admin authentication (`RequiresElevation`) except `/connections/item/…/user/…`,
-which requires any authenticated user (used by the sync button script).
+All endpoints require admin authentication (`RequiresElevation`) except `/me` and `/me/notices`,
+which requires any authenticated user (used by the sync indicator script).
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -129,7 +140,9 @@ which requires any authenticated user (used by the sync button script).
 | GET | `/WatchSync/progress` | Episode watched/total counts for all connections |
 | GET | `/WatchSync/users` | List all users |
 | GET | `/WatchSync/series` | List all TV series |
-| GET | `/WatchSync/connections/item/{itemId}/user/{userId}` | Get synced users for an item |
+| GET | `/WatchSync/me` | Series the calling user is synced on, with the other users' names |
+| GET | `/WatchSync/me/notices` | Episodes marked as watched for the calling user by sync since the last dismissal |
+| DELETE | `/WatchSync/me/notices` | Clear the calling user's notices |
 
 ---
 

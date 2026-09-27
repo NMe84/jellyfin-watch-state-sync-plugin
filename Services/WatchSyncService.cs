@@ -27,8 +27,9 @@ namespace Jellyfin.Plugin.WatchSync.Services;
 /// Propagated writes reuse the SOURCE save reason (PlaybackFinished / TogglePlayed)
 /// rather than Import, so scrobbler plugins (Trakt, Simkl, …) that listen for
 /// UserDataSaved fire for every user in the group, not just the one who was
-/// actively playing.  Re-entrancy is bounded by the equality check in ApplySync
-/// (once the target already matches the source state, no further write occurs);
+/// actively playing.  The UserDataSaved events raised by our own writes are
+/// ignored (_propagating), so a change only reaches the groups of the user who
+/// made it: with groups {A,B} and {B,C}, A's change reaches B but not C.
 /// _syncInProgress additionally guards against concurrent fan-out.
 /// </summary>
 public class WatchSyncService : IHostedService, IDisposable
@@ -39,6 +40,11 @@ public class WatchSyncService : IHostedService, IDisposable
 
     private readonly HashSet<string> _syncInProgress = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _syncLock = new();
+
+    // Set while this thread saves a propagated change; SaveUserData raises
+    // UserDataSaved synchronously, and that nested event must not fan out again.
+    [ThreadStatic]
+    private static bool _propagating;
     private bool _disposed;
 
     public WatchSyncService(
@@ -67,8 +73,11 @@ public class WatchSyncService : IHostedService, IDisposable
     private void OnUserDataSaved(object? sender, UserDataSaveEventArgs e)
     {
         // Only act on explicit played-state changes.  Import is our own write reason.
+        // UpdateUserData is POST /UserItems/{id}/UserData, used by some clients and
+        // offline-sync apps to set Played.
         if (e.SaveReason != UserDataSaveReason.PlaybackFinished &&
-            e.SaveReason != UserDataSaveReason.TogglePlayed)
+            e.SaveReason != UserDataSaveReason.TogglePlayed &&
+            e.SaveReason != UserDataSaveReason.UpdateUserData)
         {
             return;
         }
@@ -77,9 +86,28 @@ public class WatchSyncService : IHostedService, IDisposable
         // with Played=false when the viewer stops before the end.  That must never
         // unwatch the episode for the rest of the group — only a manual toggle (the
         // checkmark, i.e. TogglePlayed) is allowed to unwatch.  So ignore any
-        // playback-driven unwatch entirely.
-        if (e.SaveReason == UserDataSaveReason.PlaybackFinished && !e.UserData.Played)
+        // playback-driven unwatch entirely.  UpdateUserData carries the whole
+        // user-data object (favourites, ratings, …), so only its watched state is trusted.
+        if (e.SaveReason != UserDataSaveReason.TogglePlayed && !e.UserData.Played)
             return;
+
+        if (_propagating)
+            return;
+
+        // An exception here would escape into Jellyfin's caller (e.g. abort a
+        // season-wide "mark played" halfway), so contain everything.
+        try
+        {
+            SyncToGroup(e);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WatchSync: error handling watch-state change for {Item}", e.Item?.Name);
+        }
+    }
+
+    private void SyncToGroup(UserDataSaveEventArgs e)
+    {
 
         if (e.Item is not Episode episode)
             return;
@@ -93,7 +121,9 @@ public class WatchSyncService : IHostedService, IDisposable
             return;
 
         // Find every sync group that includes the triggering user and covers this series.
+        // ToArray() snapshots the list first: the admin API may modify it concurrently.
         var connections = config.Connections
+            .ToArray()
             .Where(c =>
                 c.SeriesId == seriesId &&
                 c.Users.Any(u => u.Id == e.UserId))
@@ -156,24 +186,44 @@ public class WatchSyncService : IHostedService, IDisposable
             return;
 
         targetData.Played = e.UserData.Played;
+        // Mirror BaseItem.MarkPlayed / MarkUnplayed: a stale resume position would keep
+        // the episode in "Continue Watching" with a partial progress bar.
+        targetData.PlaybackPositionTicks = 0;
 
         if (e.UserData.Played)
         {
             targetData.PlayCount = Math.Max(targetData.PlayCount, 1);
             targetData.LastPlayedDate ??= e.UserData.LastPlayedDate;
         }
+        else
+        {
+            targetData.PlayCount = 0;
+            targetData.LastPlayedDate = null;
+        }
 
         // Reuse the source reason (PlaybackFinished / TogglePlayed) rather than
         // Import so scrobbler plugins listening for UserDataSaved fire for this
-        // user too.  The equality check above stops the resulting re-entrant
-        // UserDataSaved from looping: once the target matches the source state,
-        // the next pass returns before writing.
-        _userDataManager.SaveUserData(
-            targetUser,
-            e.Item,
-            targetData,
-            e.SaveReason,
-            CancellationToken.None);
+        // user too.
+        _propagating = true;
+        try
+        {
+            _userDataManager.SaveUserData(
+                targetUser,
+                e.Item,
+                targetData,
+                e.SaveReason,
+                CancellationToken.None);
+        }
+        finally
+        {
+            _propagating = false;
+        }
+
+        if (e.UserData.Played && e.Item is Episode episode)
+        {
+            var source = _userManager.GetUserById(e.UserId)?.Username ?? e.UserId.ToString();
+            SyncNotices.Add(targetUserId, source, episode);
+        }
 
         _logger.LogInformation(
             "WatchSync: {Item} → {State} for '{TargetUser}' (mirrored from user {SourceUserId})",
