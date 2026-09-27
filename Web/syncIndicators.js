@@ -36,7 +36,7 @@
 
   function api(path) {
     return fetch(window.ApiClient.serverAddress() + path, {
-      headers: { 'X-Emby-Token': window.ApiClient.accessToken() }
+      headers: { 'Authorization': 'MediaBrowser Token="' + window.ApiClient.accessToken() + '"' }
     }).then(function (res) {
       if (!res.ok) throw new Error(res.status);
       return res.json();
@@ -329,7 +329,7 @@
       banner.remove();
       fetch(window.ApiClient.serverAddress() + '/WatchSync/me/notices', {
         method: 'DELETE',
-        headers: { 'X-Emby-Token': window.ApiClient.accessToken() }
+        headers: { 'Authorization': 'MediaBrowser Token="' + window.ApiClient.accessToken() + '"' }
       }).catch(function () {});
     }
     function onKey(e) {
